@@ -2,14 +2,7 @@
 
 namespace Seat\Kassie\Calendar;
 
-use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Support\Facades\Event;
-use Seat\Kassie\Calendar\Commands\RemindOperation;
-use Seat\Kassie\Calendar\Commands\SyncDiscordUsers;
-use Seat\Kassie\Calendar\Models\Operation;
-use Seat\Kassie\Calendar\Observers\OperationObserver;
 use Seat\Services\AbstractSeatPlugin;
-use SocialiteProviders\Manager\SocialiteWasCalled;
 
 /**
  * Class CalendarServiceProvider.
@@ -19,28 +12,11 @@ class CalendarServiceProvider extends AbstractSeatPlugin
 {
     public function boot(): void
     {
-        $this->addCommands();
         $this->addRoutes();
         $this->addViews();
         $this->addTranslations();
         $this->addMigrations();
         $this->addPublications();
-        $this->addObservers();
-
-        $this->registerSocialiteDiscordDriver();
-
-        $this->app->booted(function (): void {
-            $schedule = $this->app->make(Schedule::class);
-            $schedule->command('calendar:remind')->everyMinute();
-        });
-    }
-
-    private function addCommands(): void
-    {
-        $this->commands([
-            RemindOperation::class,
-            SyncDiscordUsers::class
-        ]);
     }
 
     private function addRoutes(): void
@@ -73,28 +49,15 @@ class CalendarServiceProvider extends AbstractSeatPlugin
         ]);
     }
 
-    private function addObservers(): void
-    {
-        Operation::observe(OperationObserver::class);
-    }
-
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__ . '/Config/notifications.alerts.php', 'notifications.alerts');
-
         $this->mergeConfigFrom(__DIR__ . '/Config/package.sidebar.php', 'package.sidebar');
         $this->mergeConfigFrom(__DIR__ . '/Config/calendar.character.menu.php', 'package.character.menu');
         $this->mergeConfigFrom(__DIR__ . '/Config/calendar.corporation.menu.php', 'package.corporation.menu');
-        $this->mergeConfigFrom(__DIR__ . '/Config/Discord/calendar.discord.php', 'calendar.discord');
 
         $this->registerPermissions(__DIR__ . '/Config/Permissions/calendar.php', 'calendar');
         $this->registerPermissions(__DIR__ . '/Config/Permissions/character.php', 'character');
         $this->registerPermissions(__DIR__ . '/Config/Permissions/corporation.php', 'corporation');
-    }
-
-    private function registerSocialiteDiscordDriver(): void
-    {
-        Event::listen(SocialiteWasCalled::class, 'SocialiteProviders\\Discord\\DiscordExtendSocialite@handle');
     }
 
     /**

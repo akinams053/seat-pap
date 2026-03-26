@@ -15,13 +15,10 @@ use Seat\Eseye\Exceptions\EsiScopeAccessDeniedException;
 use Seat\Eseye\Exceptions\InvalidContainerDataException;
 use Seat\Eseye\Exceptions\RequestFailedException;
 use Seat\Eveapi\Models\RefreshToken;
-use Seat\Kassie\Calendar\Discord\DiscordAction;
 use Seat\Kassie\Calendar\Models\Attendee;
 use Seat\Kassie\Calendar\Models\Operation;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Kassie\Calendar\Models\Tag;
-use Seat\Kassie\Calendar\Notifications\NotificationDispatcher;
-use Seat\Notifications\Models\Integration;
 use Seat\Services\Contracts\EsiClient;
 use Seat\Services\Exceptions\SettingException;
 use Seat\Web\Http\Controllers\Controller;
@@ -49,8 +46,6 @@ class OperationController extends Controller
      */
     public function index(Request $request): Factory|View
     {
-        $notification_channels = Integration::where('type', 'slack')->get();
-
         $tags = Tag::all()->sortBy('order');
 
         $roles = Role::orderBy('title')->get();
@@ -68,7 +63,6 @@ class OperationController extends Controller
             'characters' => $user_characters,
             'default_op' => $request->id ?: 0,
             'tags' => $tags,
-            'notification_channels' => $notification_channels,
         ]);
     }
 
@@ -109,16 +103,11 @@ class OperationController extends Controller
         if ($request->importance == 0)
             $operation->importance = 0;
 
-        $operation->integration_id = ($request->get('integration_id') == "") ?
-            null : $request->get('integration_id');
-
         $operation->user()->associate(auth()->user());
 
         $operation->save();
 
         $operation->tags()->attach($tags);
-
-        NotificationDispatcher::dispatchOperationCreated($operation);
     }
 
     /**
@@ -172,15 +161,9 @@ class OperationController extends Controller
             if ($request->importance == 0)
                 $operation->importance = 0;
 
-            $operation->integration_id = ($request->get('integration_id') == "") ?
-                null : $request->get('integration_id');
-
             $operation->save();
 
             $operation->tags()->sync($tags);
-
-            NotificationDispatcher::dispatchOperationUpdated($operation);
-            DiscordAction::syncWithDiscord("updated", $operation);
 
             return redirect()->route('operation.index');
         }
@@ -240,7 +223,6 @@ class OperationController extends Controller
         if ((auth()->user()->can('calendar.close_all') || $operation->user->id == auth()->user()->id) && $operation != null) {
             $operation->end_at = Carbon::now('UTC');
             $operation->save();
-            NotificationDispatcher::dispatchOperationEnded($operation);
             return redirect()->route('operation.index');
         }
 
@@ -289,14 +271,6 @@ class OperationController extends Controller
         $operation->timestamps = false;
         $operation->is_cancelled = $status;
         $operation->save();
-
-        if ($status) {
-            NotificationDispatcher::dispatchOperationCancelled($operation);
-            DiscordAction::syncWithDiscord("cancelled", $operation);
-        } else {
-            NotificationDispatcher::dispatchOperationActivated($operation);
-            DiscordAction::syncWithDiscord("activated", $operation);
-        }
     }
 
     /**

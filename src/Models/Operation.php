@@ -13,7 +13,6 @@ use Illuminate\Notifications\Notifiable;
 use s9e\TextFormatter\Bundles\Forum as TextFormatter;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\Sde\MapDenormalize;
-use Seat\Notifications\Models\Integration;
 use Seat\Web\Models\User;
 
 /**
@@ -37,7 +36,6 @@ class Operation extends Model
         'start_at',
         'end_at',
         'importance',
-        'integration_id',
         'description',
         'description_new',
         'staging_sys',
@@ -220,26 +218,6 @@ class Operation extends Model
             return $entry->status;
 
         return null;
-    }
-
-    /**
-     * @return string
-     */
-    public function routeNotificationForSlack(): string
-    {
-
-        if (!is_null($this->integration()))
-            return $this->integration->settings['url'];
-
-        return '';
-    }
-
-    /**
-     * @return BelongsTo
-     */
-    public function integration(): BelongsTo
-    {
-        return $this->belongsTo(Integration::class, 'integration_id', 'id');
     }
 
     /**

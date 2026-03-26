@@ -48,8 +48,6 @@ class TagController extends Controller
 
         $tag->save();
 
-        $tag->integrations()->sync($request->integrations);
-
         return redirect()
             ->back()
             ->with('success', sprintf('The tag "%s" has been successfully created.', $tag->name));
@@ -76,9 +74,7 @@ class TagController extends Controller
      */
     public function get(int $tag_id): JsonResponse
     {
-        $tag = Tag::find($tag_id)->load(['integrations' => function ($query) {
-            $query->select('id', 'name');
-        }]);
+        $tag = Tag::find($tag_id);
 
         if (is_null($tag))
             return response()->json(['msg' => sprintf('Unable to retrieve tag %s', $tag_id)], 404);

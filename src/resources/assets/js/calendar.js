@@ -113,11 +113,6 @@ op_modals.update.on('show.bs.modal', function (e) {
             $('#update_operation_role').trigger('change');
         }
 
-        if (op.integration_id !== null) {
-            $('#update-operation-channel').val(op.integration_id);
-            $('#update-operation-channel').trigger('change');
-        }
-
         op_modals.update.find('option[value="' + op.type + '"]').prop('selected', true);
         op_modals.update.find('input[name="staging_sys"]').val(op.staging_sys);
         op_modals.update.find('input[name="staging_sys_id"]').val(op.staging_sys_id);

@@ -90,18 +90,6 @@
                         </div>
                     </div>
 
-                    <div class="form-group row">
-                        <label for="integrations" class="col-sm-3">{{trans('calendar::seat.integrations')}}</label>
-                        <div class="col-sm-9">
-                            <select name="integrations[]" id="integrations" class="form-control" multiple="multiple">
-                                @foreach($integrations->sortBy('name') as $integration)
-                                    <option value="{{$integration->id}}"
-                                            id="integration-{{$integration->id}}">{{ $integration->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
                     <input type="hidden" name="tag_id"/>
                 </form>
             </div>

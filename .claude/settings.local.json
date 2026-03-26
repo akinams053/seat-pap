@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__ace-tool__search_context",
+      "Bash(git:*)",
+      "Bash(composer validate:*)",
+      "Bash(php -l \"E:/AI/All projects/seat-pap/src/CalendarServiceProvider.php\")",
+      "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Controllers/OperationController.php\")",
+      "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Controllers/SettingController.php\")",
+      "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Controllers/TagController.php\")",
+      "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Validation/SettingsValidation.php\")"
+    ]
+  }
+}

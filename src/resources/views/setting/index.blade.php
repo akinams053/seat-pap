@@ -1,22 +1,14 @@
-@extends('web::layouts.grids.4-4-4')
+@extends('web::layouts.grids.4')
 
 @section('title', trans('calendar::seat.plugin_name') . ' | ' . trans('calendar::seat.settings'))
 @section('page_header', trans('calendar::seat.settings'))
 
 @section('left')
-    @include('calendar::setting.includes.notifications')
-@stop
-
-@section('center')
     @include('calendar::setting.includes.tags')
 
     @include('calendar::setting.includes.modals.confirm_delete_tag')
 
     @include('calendar::setting.includes.modals.edit_tag')
-@stop
-
-@section('right')
-    @include('calendar::setting.includes.discord')
 @stop
 
 @push('head')
@@ -55,10 +47,6 @@
                 modal.find('input[name="tag_id"]').val(data.id);
                 modal.find('input[name="bg_color"]').val(data.bg_color);
                 modal.find('input[name="text_color"]').val(data.text_color);
-
-                for (let integration of data.integrations) {
-                    modal.find(`option[id="integration-${integration.id}"]`).prop('selected', true);
-                }
 
                 modal.find('.overlay').addClass('d-none').removeClass('d-flex');
             });

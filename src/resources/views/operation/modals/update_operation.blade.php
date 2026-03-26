@@ -166,10 +166,5 @@
             placeholder: "{{ trans('calendar::seat.select_role_filter_placeholder') }}",
             allowClear: true
         });
-
-        $('#update-operation-channel').select2({
-            placeholder: "{{ trans('calendar::seat.integration_channel') }}",
-            allowClear: true
-        });
     </script>
 @endpush
