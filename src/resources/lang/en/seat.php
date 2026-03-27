@@ -98,38 +98,7 @@ return [
     'staging_system' => 'Staging System',
     'character' => 'Character',
 
-    'notification_operation_posted_label' => 'Calendar: New Operation',
-    'notification_operation_activated_label' => 'Calendar: Operation Activated',
-    'notification_operation_cancelled_label' => 'Calendar: Operation Cancelled',
-    'notification_operation_ended_label' => 'Calendar: Operation Ended',
-    'notification_operation_pinged_label' => 'Calendar: Operation Pinged',
-    'notification_operation_updated_label' => 'Calendar: Operation Updated',
-
-
-    'notifications_to_send' => 'Notifications to send',
-
-    'help_notify_operation_interval' => 'Decide how many pings to send before each operation. Each value is the number of minutes prior to the operation to send the ping. Separate numbers with commas. Default value of :default_interval will send 3 notifications: 15 minutes, 30 minutes, and 60 minutes prior to the operation start time.',
-    'ping_intervals' => 'Ping intervals',
-
-    'slack_integration' => 'Slack Integration',
-    'discord_integration' => 'Discord Integration',
-    'enabled' => 'Enabled',
-    'default_channel' => 'Default Channel',
-    'create_operation' => 'Create Operation',
-    'cancel_operation' => 'Cancel Operation',
-    'end_operation' => 'End Operation',
-    'update_operation' => 'Update Operation',
-    'activate_operation' => 'Reactivate Cancelled Operation',
-    'webhook' => 'Webhook',
-    'emoji_full' => 'Full Emoji',
-    'emoji_half' => 'Half Emoji',
-    'emoji_empty' => 'Empty Emoji',
-    'help_emoji' => 'Setup which emoji to use to display the "importance" of an operation when relaying to Slack.',
     'save' => 'Save',
-
-    'discord_client_id' => 'Discord Client Id',
-    'discord_client_secret' => 'Discord Client Secret',
-    'discord_bot_token' => 'Discord Bot Token',
 
     'warning_no_character' => "You can't subscribe to an operation without any character registered in SeAT. Please add an API Key and retry.",
 
@@ -169,8 +138,8 @@ return [
     'untracked' => 'Un-Tracked',
     'list' => 'List',
 
-    'integrations' => 'Notification Integrations',
-
+    'add_to_calendar' => 'Add To Calendar',
+    'google_calendar' => 'Google Calendar',
 
 
 

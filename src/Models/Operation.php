@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Notifications\Notifiable;
 use s9e\TextFormatter\Bundles\Forum as TextFormatter;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\Sde\MapDenormalize;
@@ -21,8 +20,6 @@ use Seat\Web\Models\User;
  */
 class Operation extends Model
 {
-    use Notifiable;
-
     /**
      * @var string
      */

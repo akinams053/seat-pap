@@ -98,22 +98,6 @@ return [
     'fleet_commander' => '舰队指挥',
     'character' => '角色',
 
-    'notification_new_operation' => '<!channel> :rocket: 一个新的行动被推送！',
-    'notification_edit_operation' => '<!channel> :pencil2: 一个行动被编辑了！',
-    'notification_cancel_operation' => '<!channel> :no_entry_sign: 一个行动被取消！',
-    'notification_activate_operation' => '<!channel> :white_check_mark: 一个已取消的行动被重新激活了！',
-    'notification_end_operation' => '<!here> :no_entry_sign: 此操作已结束！',
-    'notification_ping_operation' => '<!channel> :bell: ',
-    'notification_enable' => '通知到 Slack',
-    'integration_channel' => '集成频道',
-
-    'slack_integration' => 'Slack 集成',
-    'enabled' => '已启用',
-    'webhook' => 'Webhook',
-    'emoji_full' => '全 Emoji',
-    'emoji_half' => '半 Emoji',
-    'emoji_empty' => '空 Emoji',
-    'help_emoji' => '设置在中继到 Slack 时用来显示操作“重要性”的表情符号。',
     'save' => '保存',
 
     'warning_no_character' => "如果没有在SeAT中注册任何角色，则无法注册行动。请添加API密钥，然后重试。",

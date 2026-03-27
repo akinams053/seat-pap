@@ -67,7 +67,7 @@ class AjaxController
             ->editColumn('staging_sys', fn($row) => view('calendar::operation.partials.staging', ['op' => $row]))
             ->addColumn('subscription', fn($row) => view('calendar::operation.partials.registration', ['op' => $row]))
             ->addColumn('actions', fn($row) => view('calendar::operation.partials.actions.actions', ['op' => $row]))
-            ->setRowClass(fn($row): string => $row->is_cancelled == 0 ? 'text-muted' : 'danger text-muted')
+            ->setRowClass(fn($row): string => $row->is_cancelled ? 'danger text-muted' : '')
             ->addRowAttr('data-attr-op', fn($row) => $row->id)
             ->rawColumns(['title', 'tags', 'importance', 'start_at', 'end_at', 'duration',
                 'fleet_commander', 'staging_sys', 'subscription', 'actions'])

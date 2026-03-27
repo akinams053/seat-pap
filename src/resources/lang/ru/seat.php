@@ -98,21 +98,6 @@ return [
     'fleet_commander' => 'Флитком',
     'character' => 'Персонаж',
 
-    'notification_new_operation' => '<!channel> :rocket: Создана новая операция !',
-    'notification_edit_operation' => '<!channel> :pencil2: Операция обновлена !',
-    'notification_cancel_operation' => '<!channel> :no_entry_sign: Операция отменена !',
-    'notification_activate_operation' => '<!channel> :white_check_mark: Отменённая операция возобновлена !',
-    'notification_ping_operation' => '<!channel> :bell: ',
-    'notification_enable' => 'Оповещение',
-    'integration_channel' => 'Выбрать канал оповещения',
-
-    'slack_integration' => 'Slack интеграция',
-    'enabled' => 'Enabled',
-    'webhook' => 'Webhook',
-    'emoji_full' => 'Full Emoji',
-    'emoji_half' => 'Half Emoji',
-    'emoji_empty' => 'Empty Emoji',
-    'help_emoji' => 'Setup which emoji to use to display the "importance" of an operation when relaying to Slack.',
     'save' => 'Save',
 
     'warning_no_character' => "Вы не можете подписаться на операцию без регистрации аккаунта в SeAT. Добавьте API ключ и повторите.",

@@ -99,43 +99,7 @@ return [
     'staging_system' => 'Staging System',
     'character' => 'Personnage',
 
-    'notification_enable' => 'Notifier sur Slack',
-    'integration_channel' => 'Salon d\'intégration',
-
-    'notification_operation_posted_label' => 'Calendrier: Nouvelle Opération',
-    'notification_operation_activated_label' => 'Calendrier: Opération activée',
-    'notification_operation_cancelled_label' => 'Calendrier: Operation annulée',
-    'notification_operation_ended_label' => 'Calendrier: Operation terminée',
-    'notification_operation_pinged_label' => 'Calendrier: Opération ping',
-    'notification_operation_updated_label' => 'Calendrier: Opération mise à jour',
-
-
-    'notifications_to_send' => 'Notifications à envoyer',
-
-    'help_notify_operation_interval' => 'Décidez de combien de ping vous voulez envoyer avant chaque opération. Chaque valeur est un nombre de minutes précédent l\'opération d\'envoi du ping. Séparez les nombres par des virgules. Les valeurs par défaut de :default_interval envoie trois notifications : 15 minutes, 30 minutes et 60 minutes avant le début de l\'opération.',
-    //'Decide how many pings to send before each operation. Each value is the number of minutes prior to the operation to send the ping. Separate numbers with commas. Default value of :default_interval will send 3 notifications: 15 minutes, 30 minutes, and 60 minutes prior to the operation start time.'
-    'ping_intervals' => 'Intervalles des ping',
-
-    'slack_integration' => 'Intégration Slack',
-    'discord_integration' => 'Intégration Discord',
-    'enabled' => 'Activée',
-    'default_channel' => 'Salon par défaut',
-    'create_operation' => 'Créer une opération',
-    'cancel_operation' => 'Annulée une opération',
-    'end_operation' => 'Finir une opération',
-    'update_operation' => 'Mettre à jour une opération',
-    'activate_operation' => 'Réactiver une opération annulée',
-    'webhook' => 'Webhook',
-    'emoji_full' => 'Full Emoji',
-    'emoji_half' => 'Half Emoji',
-    'emoji_empty' => 'Empty Emoji',
-    'help_emoji' => 'Définissez chaque emoji a faire apparaitre pour montrer l\'importance d\'une opération lorsque cela apparait sur Slack.',
-    //Setup which emoji to use to display the "importance" of an operation when relaying to Slack.
     'save' => 'Sauvegarder',
-
-    'discord_client_id' => 'Discord Client Id',
-    'discord_client_secret' => 'Discord Client Secret',
-    'discord_bot_token' => 'Discord Bot Token',
 
     'warning_no_character' => "Vous ne pouvez pas vous abonnez à une opération sans personnage enregistrer dans SeAT. Ajoutez une clé API et réessayer.",
 
