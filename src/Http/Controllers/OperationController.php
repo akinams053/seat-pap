@@ -344,7 +344,11 @@ class OperationController extends Controller
             $isFirstTime = empty($existingIds);
             $newMembers = $members->filter(fn($m) => !in_array($m->character_id, $existingIds));
 
-            // 构造返回数据，character_id 列表用于前端通过 ids_to_names 解析
+            // 服务端解析角色名
+            $characterNames = \Seat\Eveapi\Models\Character\CharacterInfo::whereIn(
+                'character_id', $newMembers->pluck('character_id')
+            )->pluck('name', 'character_id');
+
             return response()->json([
                 'status' => 'success',
                 'fleet_id' => $fleetId,
@@ -354,7 +358,7 @@ class OperationController extends Controller
                 'new_count' => $newMembers->count(),
                 'new_members' => $newMembers->map(fn($m) => [
                     'character_id' => $m->character_id,
-                    'ship_type_id' => $m->ship_type_id,
+                    'name' => $characterNames->get($m->character_id, 'Unknown #' . $m->character_id),
                 ])->values(),
             ]);
 

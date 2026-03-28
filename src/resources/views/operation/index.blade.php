@@ -273,12 +273,10 @@
                         $('#pap-issued-count').text(data.already_issued);
                         var list = $('#pap-new-list');
                         $.each(data.new_members, function (i, m) {
-                            list.append('<li class="list-group-item py-1"><span data-character-id="' + m.character_id + '">' + m.character_id + '</span></li>');
+                            list.append('<li class="list-group-item py-1">' + $('<span>').text(m.name).html() + '</li>');
                         });
                         $('#pap-supplement').removeClass('d-none');
                         $('#pap-confirm-btn').removeClass('d-none');
-                        // 解析角色名
-                        if (typeof ids_to_names === 'function') ids_to_names();
                     } else {
                         // 无新成员
                         $('#pap-no-new').removeClass('d-none');
