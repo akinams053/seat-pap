@@ -5,13 +5,11 @@ const op_modals = {
 };
 
 op_modals.create.on('show.bs.modal', function (e) {
-    const ROUNDING = 15 * 60 * 1000;
-    let nowRounded = moment.utc();
-    nowRounded = moment.utc(Math.ceil((+nowRounded) / ROUNDING) * ROUNDING);
+    let nowRounded = moment.utc().startOf('minute');
 
     const options = {
         timePicker: true,
-        timePickerIncrement: 15,
+        timePickerIncrement: 1,
         timePicker24Hour: true,
         minDate: moment.utc(),
         startDate: nowRounded,
@@ -127,7 +125,7 @@ op_modals.update.on('show.bs.modal', function (e) {
 
         const options = {
             timePicker: true,
-            timePickerIncrement: 15,
+            timePickerIncrement: 1,
             timePicker24Hour: true,
             minDate: nowRounded,
             startDate: moment.utc(op.start_at),
