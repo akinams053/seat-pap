@@ -145,6 +145,11 @@ Route::group([
             'uses' => 'SettingController@index'
         ]);
 
+        Route::post('motd', [
+            'as' => 'setting.motd.update',
+            'uses' => 'SettingController@updateMotd',
+        ]);
+
         Route::group([
             'prefix' => 'tag'
         ], function (): void {

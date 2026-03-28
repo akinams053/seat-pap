@@ -9,6 +9,8 @@
     @include('calendar::setting.includes.modals.confirm_delete_tag')
 
     @include('calendar::setting.includes.modals.edit_tag')
+
+    @include('calendar::setting.includes.motd')
 @stop
 
 @push('head')

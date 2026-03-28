@@ -145,5 +145,20 @@ return [
 
 
     // New
-    'delete_tag_description' => 'This action will delete definitely this tag. This can\'t be reverted, are you sure ?'
+    'delete_tag_description' => 'This action will delete definitely this tag. This can\'t be reverted, are you sure ?',
+
+    'motd_settings' => 'Fleet MOTD Settings',
+    'motd_colors' => 'Element Colors',
+    'motd_footer_section' => 'Footer',
+    'motd_preview' => 'Preview',
+    'motd_saved' => 'MOTD settings saved successfully.',
+    'motd_label_header' => 'Header (PAP Issued)',
+    'motd_label_fleet' => 'Fleet Name',
+    'motd_label_members' => 'Members Count',
+    'motd_label_pap_value' => 'PAP Value',
+    'motd_label_pap_type' => 'PAP Type',
+    'motd_label_time' => 'Issue Time',
+    'motd_label_error' => 'Error Header',
+    'motd_label_footer_text' => 'Footer Text',
+    'motd_label_footer_color' => 'Footer Color',
 ];

@@ -446,6 +446,11 @@ class OperationController extends Controller
         }
     }
 
+    private function motdColor(string $key, string $default): string
+    {
+        return '0xff' . (setting('kassie.calendar.' . $key, true) ?: $default);
+    }
+
     private function buildSuccessMotd(Operation $operation, int $count): string
     {
         $time = carbon()->format('Y-m-d H:i');
@@ -453,13 +458,28 @@ class OperationController extends Controller
         $papValue = $operation->tags->max('quantifier') ?: 1;
         $analytics = $operation->tags->pluck('analytics')->filter()->unique()->implode(', ') ?: 'N/A';
 
-        return "\n<color=0xff00ff00>✦ PAP Issued ✦</color>"
-            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
-            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_members') . "</color> <color=0xffffff00>" . $count . "</color>"
-            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_pap_value') . "</color> <color=0xffffff00>" . $papValue . "</color>"
-            . "\n<color=0xff00ffff>" . trans('calendar::paps.motd_type') . "</color> [" . $analytics . "]"
-            . "\n<color=0xff00ff00>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE"
-            . "\n<color=0xff999999>鱼落星海祝您船蛋平安</color>";
+        $cHeader  = $this->motdColor('motd_color_header', '00ff00');
+        $cFleet   = $this->motdColor('motd_color_fleet', 'ffffff');
+        $cMembers = $this->motdColor('motd_color_members', 'ffff00');
+        $cPap     = $this->motdColor('motd_color_pap_value', 'ffff00');
+        $cType    = $this->motdColor('motd_color_pap_type', '00ffff');
+        $cTime    = $this->motdColor('motd_color_time', '00ff00');
+
+        $footerText  = setting('kassie.calendar.motd_footer_text', true) ?: '';
+        $footerColor = $this->motdColor('motd_footer_color', 'ffff00');
+
+        $motd = "\n<color={$cHeader}>✦ PAP Issued ✦</color>"
+            . "\n<color={$cFleet}>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
+            . "\n<color={$cFleet}>" . trans('calendar::paps.motd_members') . "</color> <color={$cMembers}>" . $count . "</color>"
+            . "\n<color={$cFleet}>" . trans('calendar::paps.motd_pap_value') . "</color> <color={$cPap}>" . $papValue . "</color>"
+            . "\n<color={$cType}>" . trans('calendar::paps.motd_type') . "</color> [" . $analytics . "]"
+            . "\n<color={$cTime}>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE";
+
+        if ($footerText !== '') {
+            $motd .= "\n<color={$footerColor}>" . $footerText . "</color>";
+        }
+
+        return $motd;
     }
 
     private function buildErrorMotd(Operation $operation, string $errorMessage): string
@@ -467,11 +487,23 @@ class OperationController extends Controller
         $time = carbon()->format('Y-m-d H:i');
         $title = $operation->title;
 
-        return "\n<color=0xffff0000>✦ " . trans('calendar::paps.motd_error_title') . " ✦</color>"
-            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
-            . "\n<color=0xffff4444>" . $errorMessage . "</color>"
-            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE"
-            . "\n<color=0xff999999>鱼落星海祝您船蛋平安</color>";
+        $cError  = $this->motdColor('motd_color_error', 'ff0000');
+        $cFleet  = $this->motdColor('motd_color_fleet', 'ffffff');
+        $cTime   = $this->motdColor('motd_color_time', '00ff00');
+
+        $footerText  = setting('kassie.calendar.motd_footer_text', true) ?: '';
+        $footerColor = $this->motdColor('motd_footer_color', 'ffff00');
+
+        $motd = "\n<color={$cError}>✦ " . trans('calendar::paps.motd_error_title') . " ✦</color>"
+            . "\n<color={$cFleet}>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
+            . "\n<color={$cError}>" . $errorMessage . "</color>"
+            . "\n<color={$cTime}>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE";
+
+        if ($footerText !== '') {
+            $motd .= "\n<color={$footerColor}>" . $footerText . "</color>";
+        }
+
+        return $motd;
     }
 
     /**
