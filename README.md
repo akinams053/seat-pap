@@ -41,38 +41,10 @@
 
 ## 安装
 
-### 方式一：从 Packagist 安装（推荐）
-
 在 **SeAT 根目录**（默认 `/var/www/seat`）执行：
 
 ```bash
 composer require akinams053/seat-pap
-```
-
-### 方式二：从 GitHub 仓库安装（开发/测试）
-
-1. 在 SeAT 根目录的 `composer.json` 中添加 repository：
-
-```json
-{
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/akinams053/seat-pap.git"
-    }
-  ]
-}
-```
-
-2. 安装：
-
-```bash
-composer require akinams053/seat-pap:dev-localization
-```
-
-### 安装后步骤
-
-```bash
 php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
 php artisan migrate
 ```
