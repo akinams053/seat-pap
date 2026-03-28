@@ -449,30 +449,29 @@ class OperationController extends Controller
     private function buildSuccessMotd(Operation $operation, int $count): string
     {
         $time = carbon()->format('Y-m-d H:i');
-        $title = e($operation->title);
+        $title = $operation->title;
+        $papValue = $operation->tags->max('quantifier') ?: 1;
+        $analytics = $operation->tags->pluck('analytics')->filter()->unique()->implode(', ') ?: 'N/A';
 
-        return '<font size="14" color="#ff00d504"><b>✦ PAP Issued ✦</b></font><br><br>'
-            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_fleet') . '</b></font> '
-            . '<font size="13" color="#ffffbb00">' . $title . '</font><br>'
-            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_count') . '</b></font> '
-            . '<font size="13" color="#ff00d504">' . $count . '</font><br>'
-            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_time') . '</b></font> '
-            . '<font size="13" color="#ffffbb00">' . $time . ' EVE</font><br><br>'
-            . '<font size="12" color="#ff999999">― seat-pap</font>';
+        return "\n<color=0xff00ff00>✦ PAP Issued ✦</color>"
+            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
+            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_members') . "</color> <color=0xffffff00>" . $count . "</color>"
+            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_pap_value') . "</color> <color=0xffffff00>" . $papValue . "</color>"
+            . "\n<color=0xff00ffff>" . trans('calendar::paps.motd_type') . "</color> [" . $analytics . "]"
+            . "\n<color=0xff00ff00>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE"
+            . "\n<color=0xff999999>― seat-pap</color>";
     }
 
     private function buildErrorMotd(Operation $operation, string $errorMessage): string
     {
         $time = carbon()->format('Y-m-d H:i');
-        $title = e($operation->title);
+        $title = $operation->title;
 
-        return '<font size="14" color="#ffff0000"><b>✦ ' . trans('calendar::paps.motd_error_title') . ' ✦</b></font><br><br>'
-            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_fleet') . '</b></font> '
-            . '<font size="13" color="#ffffbb00">' . $title . '</font><br>'
-            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_time') . '</b></font> '
-            . '<font size="13" color="#ffffbb00">' . $time . ' EVE</font><br>'
-            . '<font size="13" color="#ffff4444">' . e($errorMessage) . '</font><br><br>'
-            . '<font size="12" color="#ff999999">― seat-pap</font>';
+        return "\n<color=0xffff0000>✦ " . trans('calendar::paps.motd_error_title') . " ✦</color>"
+            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
+            . "\n<color=0xffff4444>" . $errorMessage . "</color>"
+            . "\n<color=0xffffffff>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE"
+            . "\n<color=0xff999999>― seat-pap</color>";
     }
 
     /**

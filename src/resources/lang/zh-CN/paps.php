@@ -43,7 +43,9 @@ return [
     'rank_label' => '排名',
 
     'motd_fleet' => '舰队：',
-    'motd_count' => 'PAP 数：',
-    'motd_time' => '时间：',
+    'motd_members' => '舰队人数：',
+    'motd_pap_value' => '本次发放 PAP 数：',
+    'motd_type' => 'PAP 类型：',
+    'motd_time' => '发放时间：',
     'motd_error_title' => 'PAP 发放失败',
 ];
