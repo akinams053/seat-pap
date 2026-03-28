@@ -347,19 +347,19 @@ class OperationController extends Controller
         try {
             Log::info('PAP: fetching fleet for character ' . $token->character_id . ', operation ' . $operation_id);
 
-            $fleet = $client->setVersion('v1')->invoke('get', '/characters/{character_id}/fleet/', [
+            $fleet = $client->invoke('get', '/v1/characters/{character_id}/fleet/', [
                 'character_id' => $token->character_id,
             ]);
 
-            $fleetId = $fleet->getBody()->fleet_id;
+            $fleetId = $fleet->fleet_id;
             Log::info('PAP: found fleet ' . $fleetId . ', fetching members...');
 
-            $membersResponse = $client->setVersion('v1')->invoke('get', '/fleets/{fleet_id}/members/', [
+            $membersResponse = $client->invoke('get', '/v1/fleets/{fleet_id}/members/', [
                 'fleet_id' => $fleetId,
             ]);
 
-            $members = $membersResponse->getBody();
-            $count = count((array) $members);
+            $members = is_array($membersResponse) ? $membersResponse : (array) $membersResponse;
+            $count = count($members);
             Log::info('PAP: fleet has ' . $count . ' members');
 
             foreach ($members as $member) {
