@@ -433,7 +433,7 @@ class OperationController extends Controller
      */
     private function validatePapAccess(int $operationId): array|JsonResponse
     {
-        $operation = Operation::find($operationId);
+        $operation = Operation::with('tags')->find($operationId);
         if (is_null($operation))
             return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
 
@@ -494,7 +494,9 @@ class OperationController extends Controller
         $time = carbon()->format('Y-m-d H:i');
         $title = $operation->title;
         $papValue = $operation->tags->max('quantifier') ?: 1;
-        $analytics = $operation->tags->pluck('analytics')->filter()->unique()->implode(', ') ?: 'N/A';
+        $analytics = $operation->tags->pluck('analytics')->filter()->unique()
+            ->map(fn($a) => trans('calendar::seat.' . $a) !== 'calendar::seat.' . $a ? trans('calendar::seat.' . $a) : $a)
+            ->implode(', ') ?: 'N/A';
 
         $cHeader  = $this->motdColor('motd_color_header', '00ff00');
         $cFleet   = $this->motdColor('motd_color_fleet', 'ffffff');
