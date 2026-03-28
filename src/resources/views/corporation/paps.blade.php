@@ -36,7 +36,7 @@
                         <div class="input-group input-group-sm" style="width: 200px;" id="monthDistSettings">
                             <select name="month" class="form-control">
                                 @for($i = 1; $i <= 12; $i++)
-                                    <option value="{{ $i }}" @if($i == carbon()->month)selected@endif>{{ $i }}</option>
+                                    <option value="{{ $i }}" @if($i == carbon()->month) selected @endif>{{ $i }}</option>
                                 @endfor
                             </select>
                             <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
@@ -85,7 +85,7 @@
                     <select name="month" class="form-control">
                         <option value="">-- {{ trans('calendar::paps.all_months') }} --</option>
                         @for($i = 1; $i <= 12; $i++)
-                            <option value="{{ $i }}" @if($i == carbon()->month)selected@endif>{{ $i }}</option>
+                            <option value="{{ $i }}" @if($i == carbon()->month) selected @endif>{{ $i }}</option>
                         @endfor
                     </select>
                     <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
