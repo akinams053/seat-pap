@@ -28,12 +28,3 @@
         </div>
     </div>
 </div>
-
-@push('javascript')
-    <script type="text/javascript">
-        $('#activate-operation-channel').select2({
-            placeholder: "{{ trans('calendar::seat.integration_channel') }}",
-            allowClear: true
-        });
-    </script>
-@endpush

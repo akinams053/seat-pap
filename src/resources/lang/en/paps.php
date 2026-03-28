@@ -28,5 +28,8 @@ return [
     'no_paps_this_month' => 'There no paps for the current month.',
     'no_paps_this_year' => 'There no paps for the current year.',
 
-
+    'monthly_trend_header' => 'Monthly Trend',
+    'type_distribution_header' => 'PAP Type Distribution',
+    'main_character_grouped' => 'Grouped by main character',
+    'no_data' => 'No data available.',
 ];

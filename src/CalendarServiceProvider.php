@@ -81,7 +81,7 @@ class CalendarServiceProvider extends AbstractSeatPlugin
      */
     public function getPackageRepositoryUrl(): string
     {
-        return 'https://github.com/hermesdj/seat-calendar';
+        return 'https://github.com/akinams053/seat-pap';
     }
 
     /**
@@ -93,7 +93,7 @@ class CalendarServiceProvider extends AbstractSeatPlugin
      */
     public function getPackagistPackageName(): string
     {
-        return 'seat-calendar';
+        return 'seat-pap';
     }
 
     /**
@@ -105,6 +105,6 @@ class CalendarServiceProvider extends AbstractSeatPlugin
      */
     public function getPackagistVendorName(): string
     {
-        return 'hermesdj';
+        return 'akinams053';
     }
 }

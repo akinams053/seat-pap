@@ -1,6 +1,6 @@
 {
-  "name": "hermesdj/seat-calendar",
-  "description": "Calendar and PAP plugin for SeAT.",
+  "name": "akinams053/seat-pap",
+  "description": "Calendar and PAP tracking plugin for SeAT 5.x.",
   "type": "seat-plugin",
   "autoload": {
     "psr-4": {

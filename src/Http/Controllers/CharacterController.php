@@ -8,9 +8,11 @@
 namespace Seat\Kassie\Calendar\Http\Controllers;
 
 use Illuminate\Contracts\View\Factory;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Seat\Eveapi\Models\Character\CharacterInfo;
+use Seat\Eveapi\Models\RefreshToken;
 use Seat\Eveapi\Models\Sde\InvType;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Web\Http\Controllers\Controller;
@@ -22,52 +24,46 @@ use Seat\Web\Http\Controllers\Controller;
  */
 class CharacterController extends Controller
 {
-    /**
-     * @param CharacterInfo $character
-     *
-     * @return Factory|View
-     */
     public function paps(CharacterInfo $character): Factory|View
     {
         $today = carbon();
 
-        $monthlyPaps = Pap::where('character_id', $character->character_id)
-            ->select('character_id', 'year', 'month', DB::raw('sum(value) as qty'))
-            ->groupBy('character_id', 'year', 'month')
+        // 主角色聚合：获取该角色所属用户的所有角色 ID
+        $characterIds = $this->getAssociatedCharacterIds($character);
+        $mainCharacterId = $this->getMainCharacterId($character);
+
+        $monthlyPaps = Pap::whereIn('character_id', $characterIds)
+            ->select('year', 'month', DB::raw('sum(value) as qty'))
+            ->groupBy('year', 'month')
             ->get();
 
         $shipTypePaps = InvType::rightJoin('invGroups', 'invGroups.groupID', '=', 'invTypes.groupID')
             ->leftJoin('kassie_calendar_paps', 'ship_type_id', '=', 'typeID')
             ->where('categoryID', 6)
-            ->where(function ($query) use ($character): void {
-                $query->where('character_id', $character->character_id)
-                    ->orWhere('character_id', null);
+            ->where(function ($query) use ($characterIds): void {
+                $query->whereIn('character_id', $characterIds)
+                    ->orWhereNull('character_id');
             })
             ->select('invGroups.groupID', 'categoryID', 'groupName', DB::raw('sum(value) as qty'))
             ->groupBy('invGroups.groupID', 'categoryID', 'groupName')
             ->orderBy('groupName')
             ->get();
 
-        $weeklyRanking = Pap::where('week', $today->weekOfMonth)
-            ->where('month', $today->month)
-            ->where('year', $today->year)
-            ->select('character_id', DB::raw('sum(value) as qty'))
-            ->groupBy('character_id')
-            ->orderBy('qty', 'desc')
-            ->get();
+        // 排名按主角色聚合
+        $weeklyRanking = $this->getGlobalGroupedRanking([
+            ['week', $today->weekOfMonth],
+            ['month', $today->month],
+            ['year', $today->year],
+        ]);
 
-        $monthlyRanking = Pap::where('month', $today->month)
-            ->where('year', $today->year)
-            ->select('character_id', DB::raw('sum(value) as qty'))
-            ->groupBy('character_id')
-            ->orderBy('qty', 'desc')
-            ->get();
+        $monthlyRanking = $this->getGlobalGroupedRanking([
+            ['month', $today->month],
+            ['year', $today->year],
+        ]);
 
-        $yearlyRanking = Pap::where('year', $today->year)
-            ->select('character_id', DB::raw('sum(value) as qty'))
-            ->groupBy('character_id')
-            ->orderBy('qty', 'desc')
-            ->get();
+        $yearlyRanking = $this->getGlobalGroupedRanking([
+            ['year', $today->year],
+        ]);
 
         return view('calendar::character.paps', [
             'monthlyPaps' => $monthlyPaps,
@@ -75,7 +71,50 @@ class CharacterController extends Controller
             'weeklyRanking' => $weeklyRanking,
             'monthlyRanking' => $monthlyRanking,
             'yearlyRanking' => $yearlyRanking,
-            'character' => $character
+            'character' => $character,
+            'mainCharacterId' => $mainCharacterId,
         ]);
+    }
+
+    private function getAssociatedCharacterIds(CharacterInfo $character): array
+    {
+        $token = RefreshToken::find($character->character_id);
+        if ($token?->user) {
+            return $token->user->associatedCharacterIds();
+        }
+        return [$character->character_id];
+    }
+
+    private function getMainCharacterId(CharacterInfo $character): int
+    {
+        $token = RefreshToken::find($character->character_id);
+        return $token?->user?->main_character_id ?? $character->character_id;
+    }
+
+    private function getGlobalGroupedRanking(array $conditions): Collection
+    {
+        $query = DB::table('kassie_calendar_paps')
+            ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
+            ->leftJoin('users as u', 'rt.user_id', '=', 'u.id');
+
+        foreach ($conditions as [$column, $value]) {
+            $query->where("kassie_calendar_paps.{$column}", $value);
+        }
+
+        $ranking = $query
+            ->select(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id) as character_id'))
+            ->selectRaw('SUM(kassie_calendar_paps.value) as qty')
+            ->groupBy(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id)'))
+            ->orderBy('qty', 'desc')
+            ->get();
+
+        $characters = CharacterInfo::whereIn('character_id', $ranking->pluck('character_id'))
+            ->get()
+            ->keyBy('character_id');
+
+        return $ranking->map(function ($item) use ($characters) {
+            $item->character = $characters->get($item->character_id);
+            return $item;
+        });
     }
 }

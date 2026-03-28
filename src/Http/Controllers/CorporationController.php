@@ -9,8 +9,10 @@ namespace Seat\Kassie\Calendar\Http\Controllers;
 
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\Corporation\CorporationInfo;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Web\Http\Controllers\Controller;
@@ -30,40 +32,42 @@ class CorporationController extends Controller
     public function getPaps(CorporationInfo $corporation): Factory|View
     {
         $today = carbon();
+        $corpId = $corporation->corporation_id;
 
-        $weeklyRanking = Pap::with('character', 'character.affiliation')
-            ->whereHas('character.affiliation', function ($query) use ($corporation): void {
-                $query->where('corporation_id', $corporation->corporation_id);
-            })
-            ->where('week', $today->weekOfMonth)
-            ->where('month', $today->month)
-            ->where('year', $today->year)
-            ->select('character_id')
-            ->selectRaw('SUM(value) as qty')
-            ->groupBy('character_id')
-            ->orderBy('qty', 'desc')
+        $weeklyRanking = $this->getGroupedRanking($corpId, [
+            ['week', $today->weekOfMonth],
+            ['month', $today->month],
+            ['year', $today->year],
+        ]);
+
+        $monthlyRanking = $this->getGroupedRanking($corpId, [
+            ['month', $today->month],
+            ['year', $today->year],
+        ]);
+
+        $yearlyRanking = $this->getGroupedRanking($corpId, [
+            ['year', $today->year],
+        ]);
+
+        // 月度趋势
+        $monthlyTrend = DB::table('kassie_calendar_paps')
+            ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
+            ->where('ca.corporation_id', $corpId)
+            ->where('kassie_calendar_paps.year', $today->year)
+            ->select('kassie_calendar_paps.month', DB::raw('SUM(kassie_calendar_paps.value) as qty'))
+            ->groupBy('kassie_calendar_paps.month')
+            ->orderBy('kassie_calendar_paps.month')
             ->get();
 
-        $monthlyRanking = Pap::with('character', 'character.affiliation')
-            ->whereHas('character.affiliation', function ($query) use ($corporation): void {
-                $query->where('corporation_id', $corporation->corporation_id);
-            })
-            ->where('month', $today->month)
-            ->where('year', $today->year)
-            ->select('character_id')
-            ->selectRaw('SUM(value) as qty')
-            ->groupBy('character_id')
-            ->orderBy('qty', 'desc')
-            ->get();
-
-        $yearlyRanking = Pap::with('character', 'character.affiliation')
-            ->whereHas('character.affiliation', function ($query) use ($corporation): void {
-                $query->where('corporation_id', $corporation->corporation_id);
-            })
-            ->where('year', $today->year)
-            ->select('character_id')
-            ->selectRaw('SUM(value) as qty')
-            ->groupBy('character_id')
+        // 按类型分布
+        $typeDistribution = DB::table('kassie_calendar_paps')
+            ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
+            ->join('calendar_tag_operation as cto', 'cto.operation_id', '=', 'kassie_calendar_paps.operation_id')
+            ->join('calendar_tags as ct', 'ct.id', '=', 'cto.tag_id')
+            ->where('ca.corporation_id', $corpId)
+            ->where('kassie_calendar_paps.year', $today->year)
+            ->select('ct.analytics', 'ct.bg_color', DB::raw('SUM(kassie_calendar_paps.value) as qty'))
+            ->groupBy('ct.analytics', 'ct.bg_color')
             ->orderBy('qty', 'desc')
             ->get();
 
@@ -71,8 +75,44 @@ class CorporationController extends Controller
             'weeklyRanking' => $weeklyRanking,
             'monthlyRanking' => $monthlyRanking,
             'yearlyRanking' => $yearlyRanking,
-            'corporation' => $corporation
+            'monthlyTrend' => $monthlyTrend,
+            'typeDistribution' => $typeDistribution,
+            'corporation' => $corporation,
         ]);
+    }
+
+    private function getGroupedRanking(int $corporationId, array $conditions): Collection
+    {
+        $query = DB::table('kassie_calendar_paps')
+            ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
+            ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
+            ->leftJoin('users as u', 'rt.user_id', '=', 'u.id')
+            ->where('ca.corporation_id', $corporationId);
+
+        foreach ($conditions as [$column, $value]) {
+            $query->where("kassie_calendar_paps.{$column}", $value);
+        }
+
+        $ranking = $query
+            ->select(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id) as character_id'))
+            ->selectRaw('SUM(kassie_calendar_paps.value) as qty')
+            ->groupBy(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id)'))
+            ->orderBy('qty', 'desc')
+            ->get();
+
+        return $this->attachCharacterInfo($ranking);
+    }
+
+    private function attachCharacterInfo(Collection $ranking): Collection
+    {
+        $characters = CharacterInfo::whereIn('character_id', $ranking->pluck('character_id'))
+            ->get()
+            ->keyBy('character_id');
+
+        return $ranking->map(function ($item) use ($characters) {
+            $item->character = $characters->get($item->character_id);
+            return $item;
+        });
     }
 
     /**

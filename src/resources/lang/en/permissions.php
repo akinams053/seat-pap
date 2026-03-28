@@ -15,7 +15,7 @@ return [
     'calendar_create_label' => 'Create Operation',
     'calendar_create_description' => 'Grant the user to create new operation',
     'calendar_setup_label' => 'Setup',
-    'calendar_setup_description' => 'Grant the user to modify calendar settings (tags, integrations, etc...)',
+    'calendar_setup_description' => 'Grant the user to modify calendar settings (tags, etc...)',
     'calendar_delete_all_label' => 'Delete All Operations',
     'calendar_delete_all_description' => 'Grant the user to delete any operation (even those which he does not own)',
     'calendar_cancel_all_label' => 'Cancel All Operations',
