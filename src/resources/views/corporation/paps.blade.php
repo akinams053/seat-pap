@@ -9,23 +9,35 @@
 
     {{-- Overview --}}
     <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">{{ trans('calendar::paps.monthly_trend_header') }} ({{ carbon()->year }})</h3>
                 </div>
                 <div class="card-body">
-                    <canvas id="monthlyTrendChart" height="80"></canvas>
+                    <canvas id="monthlyTrendChart" height="60"></canvas>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+    </div>
+    <div class="row">
+        <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">{{ trans('calendar::paps.type_distribution_header') }} ({{ carbon()->year }})</h3>
+                    <h3 class="card-title">{{ trans('calendar::paps.type_distribution_header') }} ({{ trans('calendar::paps.this_month_header') }})</h3>
                 </div>
                 <div class="card-body">
-                    <canvas id="typeDistributionChart"></canvas>
+                    <canvas id="monthTypeDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ trans('calendar::paps.type_distribution_header') }} ({{ trans('calendar::paps.this_year_header') }})</h3>
+                </div>
+                <div class="card-body">
+                    <canvas id="yearTypeDistChart"></canvas>
                 </div>
             </div>
         </div>
@@ -34,16 +46,15 @@
     {{-- Detailed stats --}}
     <div class="card">
         <div class="card-header">
-            <h3 class="card-title">{{ trans('calendar::paps.stats_header') }}</h3>
+            <h3 class="card-title">
+                {{ trans('calendar::paps.stats_header') }}
+                <small class="text-muted ml-2">{{ trans('calendar::paps.main_character_grouped') }}</small>
+            </h3>
         </div>
         <div class="card-body">
             <div class="row mb-4">
-                <div class="col-sm-4">
+                <div class="col-sm-3">
                     <div class="input-group input-group-sm" id="yearChartSettings">
-                        <div class="form-check mr-3">
-                            <input type="checkbox" name="grouped" class="form-check-input"/>
-                            <label class="form-check-label">{{ trans('calendar::paps.use_people_group_settings') }}</label>
-                        </div>
                         <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"
                                placeholder="year"/>
                         <span class="input-group-append">
@@ -59,12 +70,8 @@
                 </div>
             </div>
             <div class="row">
-                <div class="col-sm-5">
+                <div class="col-sm-4">
                     <div class="input-group input-group-sm" id="monthlyStackedChartSettings">
-                        <div class="form-check mr-3">
-                            <input type="checkbox" name="grouped" class="form-check-input"/>
-                            <label class="form-check-label">{{ trans('calendar::paps.use_people_group_settings') }}</label>
-                        </div>
                         <select name="month" class="form-control">
                             @for($i = 1; $i < 13; $i++)
                                 <option value="{{ $i }}"
@@ -133,6 +140,7 @@
             let yearChartParameters = $('#yearChartSettings');
             let monthChartParameters = $('#monthlyStackedChartSettings');
             let themeColor = rgb2hex($('.nav-pills .nav-link.active').css('backgroundColor'));
+            let defaultColors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
 
             if (themeColor.substr(4) === rgb2hex($('.card').css('backgroundColor')).substr(4))
                 themeColor = '#000000';
@@ -167,26 +175,29 @@
                 }
             });
 
-            // --- Type distribution chart ---
-            let typeData = {!! json_encode($typeDistribution) !!};
-            if (typeData.length > 0) {
-                let defaultColors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
-                new Chart(document.getElementById('typeDistributionChart').getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: typeData.map(function (t) { return t.analytics || 'Unknown'; }),
-                        datasets: [{
-                            data: typeData.map(function (t) { return parseFloat(t.qty); }),
-                            backgroundColor: typeData.map(function (t, i) { return t.bg_color || defaultColors[i % defaultColors.length]; })
-                        }]
-                    },
-                    options: {
-                        legend: {position: 'bottom'}
-                    }
-                });
+            // --- Type distribution charts ---
+            function renderPieChart(canvasId, data) {
+                if (data.length > 0) {
+                    new Chart(document.getElementById(canvasId).getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.map(function (t) { return t.analytics || 'Unknown'; }),
+                            datasets: [{
+                                data: data.map(function (t) { return parseFloat(t.qty); }),
+                                backgroundColor: data.map(function (t, i) { return t.bg_color || defaultColors[i % defaultColors.length]; })
+                            }]
+                        },
+                        options: {
+                            legend: {position: 'bottom'}
+                        }
+                    });
+                }
             }
 
-            // --- Year chart ---
+            renderPieChart('monthTypeDistChart', {!! json_encode($monthTypeDistribution) !!});
+            renderPieChart('yearTypeDistChart', {!! json_encode($yearTypeDistribution) !!});
+
+            // --- Year chart (always grouped by main character) ---
             let yearChartSettings = {
                 type: 'bar',
                 data: {
@@ -241,8 +252,8 @@
                 $.ajax({
                     url: '{{ route('corporation.ajax.paps.year', request()->route('corporation')) }}',
                     data: {
-                        year: yearChartParameters.find('input[type="text"]').val(),
-                        grouped: yearChartParameters.find('input[type="checkbox"]').is(':checked') ? 1 : 0
+                        year: yearChartParameters.find('input[name="year"]').val(),
+                        grouped: 1
                     },
                     success: function (data) {
                         let pareto = [];
@@ -281,11 +292,8 @@
                             yearChartSettings.data.datasets[0].data.push(value / pareto[pareto.length - 1] * 100);
                         });
 
-                        yearChartSettings.options.title.text = 'participation of year ' +
-                            yearChartParameters.find('input[type="text"]').val();
-
-                        if (yearChartParameters.find('input[type="checkbox"]').is(':checked'))
-                            yearChartSettings.options.title.text = 'grouped ' + yearChartSettings.options.title.text;
+                        yearChartSettings.options.title.text = 'grouped participation of year ' +
+                            yearChartParameters.find('input[name="year"]').val();
 
                         yearChart = new Chart(document.getElementById('yearPaps').getContext('2d'), yearChartSettings);
                     }
@@ -298,7 +306,7 @@
                     data: {
                         year: monthChartParameters.find('input[name="year"]').val(),
                         month: monthChartParameters.find('select[name="month"]').val(),
-                        grouped: monthChartParameters.find('input[type="checkbox"]').is(':checked') ? 1 : 0
+                        grouped: 1
                     },
                     success: function (data) {
                         let pointFound = false;
@@ -370,12 +378,9 @@
                             });
                         });
 
-                        monthChartSettings.options.title.text = 'participation of ' +
+                        monthChartSettings.options.title.text = 'grouped participation of ' +
                             monthChartParameters.find('select[name="month"]').val() + '-' +
                             monthChartParameters.find('input[name="year"]').val();
-
-                        if (monthChartParameters.find('input[type="checkbox"]').is(':checked'))
-                            monthChartSettings.options.title.text = 'grouped ' + monthChartSettings.options.title.text;
 
                         monthChart = new Chart(document.getElementById('monthlyStackedChart').getContext('2d'), monthChartSettings);
                     }
