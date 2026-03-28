@@ -41,4 +41,9 @@ return [
     'all_months' => 'All Months',
     'export_btn' => 'Export',
     'rank_label' => 'Rank',
+
+    'motd_fleet' => 'Fleet:',
+    'motd_count' => 'PAPs:',
+    'motd_time' => 'Time:',
+    'motd_error_title' => 'PAP Issue Failed',
 ];

@@ -343,6 +343,7 @@ class OperationController extends Controller
         }
 
         $client = $this->eseye($token);
+        $fleetId = null;
 
         try {
             Log::info('PAP: fetching fleet for character ' . $token->character_id . ', operation ' . $operation_id);
@@ -374,8 +375,17 @@ class OperationController extends Controller
             }
 
             Log::info('PAP: successfully processed ' . $count . ' members for operation ' . $operation_id);
+
+            // PAP 成功发放，更新舰队 MOTD
+            $this->updateFleetMotd($client, $fleetId, $operation, $count, true);
+
         } catch (RequestFailedException $e) {
             Log::warning('PAP: ESI request failed - ' . $e->getCode() . ' - ' . $e->getError());
+
+            // 有 fleet_id 时尝试发送错误 MOTD
+            if ($fleetId) {
+                $this->updateFleetMotd($client, $fleetId, $operation, 0, false, $e->getError());
+            }
 
             if ($e->getError() == 'Character is not in a fleet')
                 return redirect()
@@ -392,6 +402,11 @@ class OperationController extends Controller
                 ->with('error', 'Esi respond with an unhandled error : (' . $e->getCode() . ') ' . $e->getError());
         } catch (EsiScopeAccessDeniedException $e) {
             Log::warning('PAP: ESI scope access denied for character ' . $token->character_id);
+
+            if ($fleetId) {
+                $this->updateFleetMotd($client, $fleetId, $operation, 0, false, 'ESI scope access denied');
+            }
+
             return redirect()
                 ->back()
                 ->with('error', 'Registered tokens has not enough privileges. Please bind your character and pap again.');
@@ -400,6 +415,64 @@ class OperationController extends Controller
         return redirect()
             ->back()
             ->with('success', 'Fleet members has been successfully papped.');
+    }
+
+    /**
+     * PAP 发放后更新舰队 MOTD
+     */
+    private function updateFleetMotd(
+        EsiClient $client,
+        int $fleetId,
+        Operation $operation,
+        int $count,
+        bool $success,
+        string $errorMessage = ''
+    ): void {
+        try {
+            $motd = $success
+                ? $this->buildSuccessMotd($operation, $count)
+                : $this->buildErrorMotd($operation, $errorMessage);
+
+            $client->setBody([
+                'motd' => $motd,
+            ])->invoke('put', '/v1/fleets/{fleet_id}/', [
+                'fleet_id' => $fleetId,
+            ]);
+
+            Log::info('PAP: fleet MOTD updated for fleet ' . $fleetId);
+        } catch (\Throwable $e) {
+            // MOTD 更新失败不应影响 PAP 发放结果
+            Log::warning('PAP: failed to update fleet MOTD - ' . $e->getMessage());
+        }
+    }
+
+    private function buildSuccessMotd(Operation $operation, int $count): string
+    {
+        $time = carbon()->format('Y-m-d H:i');
+        $title = e($operation->title);
+
+        return '<font size="14" color="#ff00d504"><b>✦ PAP Issued ✦</b></font><br><br>'
+            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_fleet') . '</b></font> '
+            . '<font size="13" color="#ffffbb00">' . $title . '</font><br>'
+            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_count') . '</b></font> '
+            . '<font size="13" color="#ff00d504">' . $count . '</font><br>'
+            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_time') . '</b></font> '
+            . '<font size="13" color="#ffffbb00">' . $time . ' EVE</font><br><br>'
+            . '<font size="12" color="#ff999999">― seat-pap</font>';
+    }
+
+    private function buildErrorMotd(Operation $operation, string $errorMessage): string
+    {
+        $time = carbon()->format('Y-m-d H:i');
+        $title = e($operation->title);
+
+        return '<font size="14" color="#ffff0000"><b>✦ ' . trans('calendar::paps.motd_error_title') . ' ✦</b></font><br><br>'
+            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_fleet') . '</b></font> '
+            . '<font size="13" color="#ffffbb00">' . $title . '</font><br>'
+            . '<font size="13" color="#ffffffff"><b>' . trans('calendar::paps.motd_time') . '</b></font> '
+            . '<font size="13" color="#ffffbb00">' . $time . ' EVE</font><br>'
+            . '<font size="13" color="#ffff4444">' . e($errorMessage) . '</font><br><br>'
+            . '<font size="12" color="#ff999999">― seat-pap</font>';
     }
 
     /**

@@ -85,9 +85,24 @@ FC 角色必须在 SeAT 中注册并授权以下 ESI scope：
 
 ```
 esi-fleets.read_fleet.v1
+esi-fleets.write_fleet.v1
 ```
 
+- `read_fleet`：读取舰队成员列表，用于 PAP 采集
+- `write_fleet`：PAP 发放后自动更新舰队 MOTD 通知成员
+
 PAP 采集时，FC 必须是 fleet boss。
+
+### 舰队 MOTD 通知
+
+PAP 发放成功后，系统会自动更新舰队 MOTD，以彩色格式展示：
+- 舰队名称（operation 标题）
+- 本次发放 PAP 数量
+- 发放时间（EVE 时间）
+
+如果 PAP 发放过程中出现错误，MOTD 会显示红色错误提示。
+
+MOTD 更新失败不会影响 PAP 的正常发放。
 
 ### 主角色聚合
 

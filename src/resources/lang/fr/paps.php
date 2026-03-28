@@ -28,5 +28,8 @@ return [
     'no_paps_this_month' => 'There no paps for the current month.',
     'no_paps_this_year' => 'There no paps for the current year.',
 
-
+    'motd_fleet' => 'Fleet:',
+    'motd_count' => 'PAPs:',
+    'motd_time' => 'Time:',
+    'motd_error_title' => 'PAP Issue Failed',
 ];

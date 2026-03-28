@@ -41,4 +41,9 @@ return [
     'all_months' => '全部月份',
     'export_btn' => '导出',
     'rank_label' => '排名',
+
+    'motd_fleet' => '舰队：',
+    'motd_count' => 'PAP 数：',
+    'motd_time' => '时间：',
+    'motd_error_title' => 'PAP 发放失败',
 ];
