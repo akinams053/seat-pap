@@ -56,12 +56,50 @@
 
 ## 安装
 
+当前开发分支为 `localization`，需要指定版本安装。
+
+Packagist 页面：https://packagist.org/packages/akinams053/seat-pap#dev-localization
+
 在 **SeAT 根目录**（默认 `/var/www/seat`）执行：
 
 ```bash
-composer require akinams053/seat-pap
-php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
+cd /var/www/seat
+
+# 安装插件（需要 sudo 以写入 vendor 目录）
+sudo composer require akinams053/seat-pap:dev-localization
+
+# 发布静态资源（CSS/JS）
+sudo php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
+
+# 执行数据库迁移
 php artisan migrate
+
+# 清除缓存
+php artisan view:clear
+php artisan route:clear
+php artisan cache:clear
+```
+
+> **注意**：如果 `composer require` 提示权限问题，请使用 `sudo`。SeAT 目录通常属于 `www-data` 用户。
+
+## 更新
+
+```bash
+cd /var/www/seat
+
+# 拉取最新版本
+sudo composer update akinams053/seat-pap
+
+# 重新发布静态资源
+sudo php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
+
+# 执行新增迁移（如有）
+php artisan migrate
+
+# 清除缓存
+php artisan view:clear
+php artisan route:clear
+php artisan cache:clear
 ```
 
 ## 使用说明
