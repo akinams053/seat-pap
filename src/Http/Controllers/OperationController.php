@@ -459,7 +459,7 @@ class OperationController extends Controller
             . "\n<color=0xffffffff>" . trans('calendar::paps.motd_pap_value') . "</color> <color=0xffffff00>" . $papValue . "</color>"
             . "\n<color=0xff00ffff>" . trans('calendar::paps.motd_type') . "</color> [" . $analytics . "]"
             . "\n<color=0xff00ff00>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE"
-            . "\n<color=0xff999999>― seat-pap</color>";
+            . "\n<color=0xff999999>鱼落星海祝您船蛋平安</color>";
     }
 
     private function buildErrorMotd(Operation $operation, string $errorMessage): string
@@ -471,7 +471,7 @@ class OperationController extends Controller
             . "\n<color=0xffffffff>" . trans('calendar::paps.motd_fleet') . "</color> " . $title
             . "\n<color=0xffff4444>" . $errorMessage . "</color>"
             . "\n<color=0xffffffff>" . trans('calendar::paps.motd_time') . "</color> " . $time . " EVE"
-            . "\n<color=0xff999999>― seat-pap</color>";
+            . "\n<color=0xff999999>鱼落星海祝您船蛋平安</color>";
     }
 
     /**
