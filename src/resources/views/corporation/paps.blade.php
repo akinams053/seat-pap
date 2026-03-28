@@ -291,20 +291,14 @@
 
                 let month = $('#rankingSettings').find('select[name="month"]').val();
                 let year = $('#rankingSettings').find('input[name="year"]').val();
-                let filename = 'pap_ranking_' + year + (month ? '_' + month : '') + '.xlsx';
+                let filename = 'pap_ranking_' + year + (month ? '_' + month : '') + '.csv';
 
-                let rows = '<tr><td>{{ trans('calendar::paps.rank_label') }}</td><td>{{ trans('calendar::paps.character_header') }}</td><td>{{ trans('calendar::paps.paps_header') }}</td></tr>';
+                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.paps_header') }}\n';
                 $.each(currentRankingData, function (index, item) {
-                    rows += '<tr><td>' + (index + 1) + '</td><td>' + $('<span>').text(item.name || 'Unknown').html() + '</td><td>' + item.qty + '</td></tr>';
+                    csv += (index + 1) + ',"' + (item.name || 'Unknown').replace(/"/g, '""') + '",' + item.qty + '\n';
                 });
 
-                let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
-                    '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
-                    '<x:Name>Ranking</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>' +
-                    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>' +
-                    '<body><table>' + rows + '</table></body></html>';
-
-                let blob = new Blob([html], {type: 'application/vnd.ms-excel;charset=utf-8;'});
+                let blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
                 let link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = filename;
