@@ -30,9 +30,15 @@ return [
 
     'monthly_trend_header' => 'Monthly Trend',
     'type_distribution_header' => 'PAP Type Distribution',
+    'type_dist_month_header' => 'PAP Type Distribution (Monthly)',
+    'type_dist_year_header' => 'PAP Type Distribution (Yearly)',
     'main_character_grouped' => 'Grouped by main character',
     'no_data' => 'No data available.',
 
     'this_month_paps' => 'This Month PAPs',
     'this_year_paps' => 'This Year PAPs',
+
+    'all_months' => 'All Months',
+    'export_btn' => 'Export',
+    'rank_label' => 'Rank',
 ];

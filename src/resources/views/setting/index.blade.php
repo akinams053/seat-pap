@@ -1,9 +1,9 @@
-@extends('web::layouts.grids.4')
+@extends('web::layouts.grids.12')
 
 @section('title', trans('calendar::seat.plugin_name') . ' | ' . trans('calendar::seat.settings'))
 @section('page_header', trans('calendar::seat.settings'))
 
-@section('left')
+@section('full')
     @include('calendar::setting.includes.tags')
 
     @include('calendar::setting.includes.modals.confirm_delete_tag')

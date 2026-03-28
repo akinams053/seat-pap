@@ -30,9 +30,15 @@ return [
 
     'monthly_trend_header' => '月度参与趋势',
     'type_distribution_header' => 'PAP 类型分布',
+    'type_dist_month_header' => 'PAP 类型分布（月度）',
+    'type_dist_year_header' => 'PAP 类型分布（年度）',
     'main_character_grouped' => '已按主角色聚合',
     'no_data' => '暂无数据。',
 
     'this_month_paps' => '本月 PAP',
     'this_year_paps' => '本年 PAP',
+
+    'all_months' => '全部月份',
+    'export_btn' => '导出',
+    'rank_label' => '排名',
 ];

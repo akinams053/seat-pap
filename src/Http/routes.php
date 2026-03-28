@@ -28,15 +28,21 @@ Route::group([
         'middleware' => 'can:corporation.kassie_calendar_paps,corporation',
     ]);
 
-    Route::get('/{corporation}/paps/json/year', [
-        'as' => 'corporation.ajax.paps.year',
-        'uses' => 'CorporationController@getYearPapsStats',
+    Route::get('/{corporation}/paps/json/monthly-trend', [
+        'as' => 'corporation.ajax.paps.monthly-trend',
+        'uses' => 'CorporationController@getMonthlyTrendJson',
         'middleware' => 'can:corporation.kassie_calendar_paps,corporation',
     ]);
 
-    Route::get('/{corporation}/paps/json/stacked', [
-        'as' => 'corporation.ajax.paps.stacked',
-        'uses' => 'CorporationController@getMonthlyStackedPapsStats',
+    Route::get('/{corporation}/paps/json/type-distribution', [
+        'as' => 'corporation.ajax.paps.type-distribution',
+        'uses' => 'CorporationController@getTypeDistributionJson',
+        'middleware' => 'can:corporation.kassie_calendar_paps,corporation',
+    ]);
+
+    Route::get('/{corporation}/paps/json/ranking', [
+        'as' => 'corporation.ajax.paps.ranking',
+        'uses' => 'CorporationController@getRankingJson',
         'middleware' => 'can:corporation.kassie_calendar_paps,corporation',
     ]);
 

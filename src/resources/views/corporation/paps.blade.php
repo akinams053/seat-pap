@@ -7,89 +7,67 @@
 
 @section('corporation_content')
 
-    {{-- Overview --}}
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">{{ trans('calendar::paps.monthly_trend_header') }} ({{ carbon()->year }})</h3>
-                </div>
-                <div class="card-body">
-                    <canvas id="monthlyTrendChart" height="60"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">{{ trans('calendar::paps.type_distribution_header') }} ({{ trans('calendar::paps.this_month_header') }})</h3>
-                </div>
-                <div class="card-body">
-                    <canvas id="monthTypeDistChart"></canvas>
+    {{-- Monthly Trend --}}
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">{{ trans('calendar::paps.monthly_trend_header') }}</h3>
+            <div class="card-tools">
+                <div class="input-group input-group-sm" style="width: 120px;" id="trendSettings">
+                    <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
+                    <span class="input-group-append">
+                        <button type="button" class="btn btn-info btn-flat btn-sm">{{ trans('calendar::paps.display_btn') }}</button>
+                    </span>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">{{ trans('calendar::paps.type_distribution_header') }} ({{ trans('calendar::paps.this_year_header') }})</h3>
-                </div>
-                <div class="card-body">
-                    <canvas id="yearTypeDistChart"></canvas>
-                </div>
-            </div>
+        <div class="card-body">
+            <canvas id="monthlyTrendChart" height="60"></canvas>
+            <p class="text-center text-muted d-none" id="trendEmpty">{{ trans('calendar::paps.no_data') }}</p>
         </div>
     </div>
 
-    {{-- Detailed stats --}}
-    <div class="card">
-        <div class="card-header">
-            <h3 class="card-title">
-                {{ trans('calendar::paps.stats_header') }}
-                <small class="text-muted ml-2">{{ trans('calendar::paps.main_character_grouped') }}</small>
-            </h3>
-        </div>
-        <div class="card-body">
-            <div class="row mb-4">
-                <div class="col-sm-3">
-                    <div class="input-group input-group-sm" id="yearChartSettings">
-                        <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"
-                               placeholder="year"/>
-                        <span class="input-group-append">
-                            <button type="button"
-                                    class="btn btn-info btn-flat">{{ trans('calendar::paps.display_btn') }}</button>
-                        </span>
+    {{-- Type Distribution --}}
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ trans('calendar::paps.type_dist_month_header') }}</h3>
+                    <div class="card-tools">
+                        <div class="input-group input-group-sm" style="width: 200px;" id="monthDistSettings">
+                            <select name="month" class="form-control">
+                                @for($i = 1; $i <= 12; $i++)
+                                    <option value="{{ $i }}" @if($i == carbon()->month)selected@endif>{{ $i }}</option>
+                                @endfor
+                            </select>
+                            <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
+                            <span class="input-group-append">
+                                <button type="button" class="btn btn-info btn-flat btn-sm">{{ trans('calendar::paps.display_btn') }}</button>
+                            </span>
+                        </div>
                     </div>
                 </div>
-                <div class="col-12">
-                    <div class="chart">
-                        <canvas id="yearPaps" height="600" width="1200"></canvas>
-                    </div>
+                <div class="card-body">
+                    <canvas id="monthTypeDistChart"></canvas>
+                    <p class="text-center text-muted d-none" id="monthDistEmpty">{{ trans('calendar::paps.no_data') }}</p>
                 </div>
             </div>
-            <div class="row">
-                <div class="col-sm-4">
-                    <div class="input-group input-group-sm" id="monthlyStackedChartSettings">
-                        <select name="month" class="form-control">
-                            @for($i = 1; $i < 13; $i++)
-                                <option value="{{ $i }}"
-                                        @if($i == carbon()->month)selected="selected"@endif>{{ $i }}</option>
-                            @endfor
-                        </select>
-                        <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"
-                               placeholder="year"/>
-                        <span class="input-group-append">
-                            <button type="button"
-                                    class="btn btn-info btn-flat">{{ trans('calendar::paps.display_btn') }}</button>
-                        </span>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ trans('calendar::paps.type_dist_year_header') }}</h3>
+                    <div class="card-tools">
+                        <div class="input-group input-group-sm" style="width: 120px;" id="yearDistSettings">
+                            <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
+                            <span class="input-group-append">
+                                <button type="button" class="btn btn-info btn-flat btn-sm">{{ trans('calendar::paps.display_btn') }}</button>
+                            </span>
+                        </div>
                     </div>
                 </div>
-                <div class="col-12">
-                    <div class="chart">
-                        <canvas id="monthlyStackedChart" width="1200"></canvas>
-                    </div>
+                <div class="card-body">
+                    <canvas id="yearTypeDistChart"></canvas>
+                    <p class="text-center text-muted d-none" id="yearDistEmpty">{{ trans('calendar::paps.no_data') }}</p>
                 </div>
             </div>
         </div>
@@ -102,293 +80,236 @@
                 {{ trans('calendar::paps.ranking_header') }}
                 <small class="text-muted ml-2">{{ trans('calendar::paps.main_character_grouped') }}</small>
             </h3>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4">
-                    <h4>{{ trans('calendar::paps.this_week_header') }}</h4>
-                    @include('calendar::common.includes.ranking_table', [
-                        'ranking' => $weeklyRanking,
-                        'emptyMessage' => trans('calendar::paps.no_paps_this_week'),
-                    ])
-                </div>
-                <div class="col-md-4">
-                    <h4>{{ trans('calendar::paps.this_month_header') }}</h4>
-                    @include('calendar::common.includes.ranking_table', [
-                        'ranking' => $monthlyRanking,
-                        'emptyMessage' => trans('calendar::paps.no_paps_this_month'),
-                    ])
-                </div>
-                <div class="col-md-4">
-                    <h4>{{ trans('calendar::paps.this_year_header') }}</h4>
-                    @include('calendar::common.includes.ranking_table', [
-                        'ranking' => $yearlyRanking,
-                        'emptyMessage' => trans('calendar::paps.no_paps_this_year'),
-                    ])
+            <div class="card-tools">
+                <div class="input-group input-group-sm" id="rankingSettings">
+                    <select name="month" class="form-control">
+                        <option value="">-- {{ trans('calendar::paps.all_months') }} --</option>
+                        @for($i = 1; $i <= 12; $i++)
+                            <option value="{{ $i }}" @if($i == carbon()->month)selected@endif>{{ $i }}</option>
+                        @endfor
+                    </select>
+                    <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
+                    <span class="input-group-append">
+                        <button type="button" class="btn btn-info btn-flat btn-sm">{{ trans('calendar::paps.display_btn') }}</button>
+                        <button type="button" class="btn btn-success btn-flat btn-sm" id="exportRankingBtn">
+                            <i class="fas fa-file-excel"></i> {{ trans('calendar::paps.export_btn') }}
+                        </button>
+                    </span>
                 </div>
             </div>
+        </div>
+        <div class="card-body">
+            <table class="table table-hover mb-0" id="rankingTable">
+                <thead>
+                <tr>
+                    <th style="width: 45px;" class="text-center">#</th>
+                    <th>{{ trans('calendar::paps.character_header') }}</th>
+                    <th style="width: 160px;">{{ trans('calendar::paps.paps_header') }}</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="text-center text-muted d-none" id="rankingEmpty">{{ trans('calendar::paps.no_data') }}</p>
         </div>
     </div>
 @stop
 
 @push('javascript')
-    <script type="text/javascript" src="{{ asset('web/js/rainbowvis.js') }}"></script>
     <script type="text/javascript">
         $(function () {
-            let yearChart, monthChart;
-            let rainbow = new Rainbow();
-            let yearChartParameters = $('#yearChartSettings');
-            let monthChartParameters = $('#monthlyStackedChartSettings');
-            let themeColor = rgb2hex($('.nav-pills .nav-link.active').css('backgroundColor'));
+            let trendChart, monthDistChart, yearDistChart;
             let defaultColors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#17a2b8', '#6f42c1', '#fd7e14', '#20c997'];
+            let monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            let themeColor = rgb2hex($('.nav-pills .nav-link.active').css('backgroundColor'));
+            let currentRankingData = [];
 
             if (themeColor.substr(4) === rgb2hex($('.card').css('backgroundColor')).substr(4))
                 themeColor = '#000000';
 
-            // --- Monthly trend chart ---
-            let trendData = {!! json_encode($monthlyTrend) !!};
-            let monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            let trendValues = new Array(12).fill(0);
-            trendData.forEach(function (item) {
-                trendValues[item.month - 1] = parseFloat(item.qty);
-            });
+            // --- Monthly trend chart (AJAX) ---
+            let trendUrl = '{{ route('corporation.ajax.paps.monthly-trend', request()->route('corporation')) }}';
 
-            new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: monthNames,
-                    datasets: [{
-                        label: 'PAPs',
-                        data: trendValues,
-                        borderColor: themeColor,
-                        fill: true,
-                        backgroundColor: themeColor + '22',
-                        pointRadius: 4,
-                        pointBackgroundColor: themeColor
-                    }]
-                },
-                options: {
-                    legend: {display: false},
-                    scales: {
-                        yAxes: [{ticks: {min: 0, stepSize: 1}}]
-                    }
-                }
-            });
+            function loadTrend() {
+                let year = $('#trendSettings').find('input[name="year"]').val();
+                $.ajax({
+                    url: trendUrl,
+                    data: {year: year},
+                    success: function (data) {
+                        if (trendChart) trendChart.destroy();
+                        $('#trendEmpty').addClass('d-none');
+                        $('#monthlyTrendChart').show();
 
-            // --- Type distribution charts ---
-            function renderPieChart(canvasId, data) {
-                if (data.length > 0) {
-                    new Chart(document.getElementById(canvasId).getContext('2d'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: data.map(function (t) { return t.analytics || 'Unknown'; }),
-                            datasets: [{
-                                data: data.map(function (t) { return parseFloat(t.qty); }),
-                                backgroundColor: data.map(function (t, i) { return t.bg_color || defaultColors[i % defaultColors.length]; })
-                            }]
-                        },
-                        options: {
-                            legend: {position: 'bottom'}
+                        let trendValues = new Array(12).fill(0);
+                        data.forEach(function (item) {
+                            trendValues[item.month - 1] = parseFloat(item.qty);
+                        });
+
+                        let hasData = trendValues.some(function (v) { return v > 0; });
+                        if (!hasData) {
+                            $('#monthlyTrendChart').hide();
+                            $('#trendEmpty').removeClass('d-none');
+                            return;
                         }
-                    });
-                }
+
+                        trendChart = new Chart(document.getElementById('monthlyTrendChart').getContext('2d'), {
+                            type: 'line',
+                            data: {
+                                labels: monthNames,
+                                datasets: [{
+                                    label: 'PAPs',
+                                    data: trendValues,
+                                    borderColor: themeColor,
+                                    fill: true,
+                                    backgroundColor: themeColor + '22',
+                                    pointRadius: 4,
+                                    pointBackgroundColor: themeColor
+                                }]
+                            },
+                            options: {
+                                legend: {display: false},
+                                scales: {
+                                    yAxes: [{ticks: {min: 0, stepSize: 1}}]
+                                }
+                            }
+                        });
+                    }
+                });
             }
 
-            renderPieChart('monthTypeDistChart', {!! json_encode($monthTypeDistribution) !!});
-            renderPieChart('yearTypeDistChart', {!! json_encode($yearTypeDistribution) !!});
+            $('#trendSettings').find('button').on('click', loadTrend);
+            loadTrend();
 
-            // --- Year chart (always grouped by main character) ---
-            let yearChartSettings = {
-                type: 'bar',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        type: 'line',
-                        label: '% participation',
-                        data: [],
-                        yAxisID: 'pareto',
-                        fill: false
-                    }, {
-                        type: 'bar',
-                        label: '# participation',
-                        data: [],
-                        backgroundColor: [],
-                        yAxisID: 'quantity'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    title: {display: true, text: 'participation of year'},
-                    tooltips: {mode: 'index', intersect: true},
-                    scales: {
-                        xAxes: [{barThickness: 20}],
-                        yAxes: [{
-                            id: 'quantity',
-                            ticks: {min: 0, stepSize: 1},
-                            position: 'left'
-                        }, {
-                            id: 'pareto',
-                            ticks: {min: 0},
-                            gridLines: {drawOnChartArea: false},
-                            position: 'right'
-                        }]
-                    }
-                }
-            };
-
-            let monthChartSettings = {
-                type: 'horizontalBar',
-                data: {labels: [], datasets: []},
-                options: {
-                    title: {display: true, text: 'stacked participation of the month'},
-                    scales: {
-                        xAxes: [{stacked: true}],
-                        yAxes: [{stacked: true, barThickness: 20}]
-                    }
-                }
-            };
-
-            yearChartParameters.find('button').on('click', function () {
+            // --- Type distribution ---
+            function loadTypeDistribution(canvasId, emptyId, url, params, chartRef) {
                 $.ajax({
-                    url: '{{ route('corporation.ajax.paps.year', request()->route('corporation')) }}',
-                    data: {
-                        year: yearChartParameters.find('input[name="year"]').val(),
-                        grouped: 1
-                    },
+                    url: url,
+                    data: params,
                     success: function (data) {
-                        let pareto = [];
-
-                        if (typeof yearChart !== 'undefined')
-                            yearChart.destroy();
-
-                        yearChartSettings.data.labels = [];
-                        yearChartSettings.data.datasets[0].data = [];
-                        yearChartSettings.data.datasets[1].data = [];
-                        yearChartSettings.data.datasets[1].backgroundColor = [];
-                        $('#yearPaps').parent('.chart').find('p').remove();
+                        if (chartRef.chart) chartRef.chart.destroy();
+                        $('#' + emptyId).addClass('d-none');
+                        $('#' + canvasId).show();
 
                         if (data.length < 1) {
-                            $('#yearPaps').parent('.chart')
-                                .append('<p class="text-danger text-center">There are no data to display</p>');
+                            $('#' + canvasId).hide();
+                            $('#' + emptyId).removeClass('d-none');
                             return;
                         }
 
-                        rainbow.setNumberRange(0, data.length);
-                        rainbow.setSpectrum('#8e8e8e', themeColor, '#dddddd');
-
-                        $(data).each(function (index, record) {
-                            yearChartSettings.data.labels.push((record.name == null) ? 'Unknown' : record.name);
-                            yearChartSettings.data.datasets[1].data.push(record.qty);
-
-                            if (pareto.length > 0)
-                                pareto.push(pareto[pareto.length - 1] + parseFloat(record.qty));
-                            else
-                                pareto.push(parseFloat(record.qty));
-
-                            yearChartSettings.data.datasets[1].backgroundColor.push('#' + rainbow.colourAt(index));
+                        chartRef.chart = new Chart(document.getElementById(canvasId).getContext('2d'), {
+                            type: 'doughnut',
+                            data: {
+                                labels: data.map(function (t) { return t.analytics || 'Unknown'; }),
+                                datasets: [{
+                                    data: data.map(function (t) { return parseFloat(t.qty); }),
+                                    backgroundColor: data.map(function (t, i) { return t.bg_color || defaultColors[i % defaultColors.length]; })
+                                }]
+                            },
+                            options: { legend: {position: 'bottom'} }
                         });
-
-                        $(pareto).each(function (index, value) {
-                            yearChartSettings.data.datasets[0].data.push(value / pareto[pareto.length - 1] * 100);
-                        });
-
-                        yearChartSettings.options.title.text = 'grouped participation of year ' +
-                            yearChartParameters.find('input[name="year"]').val();
-
-                        yearChart = new Chart(document.getElementById('yearPaps').getContext('2d'), yearChartSettings);
                     }
                 });
+            }
+
+            let monthDistRef = {chart: null};
+            let yearDistRef = {chart: null};
+            let typeDistUrl = '{{ route('corporation.ajax.paps.type-distribution', request()->route('corporation')) }}';
+
+            $('#monthDistSettings').find('button').on('click', function () {
+                loadTypeDistribution('monthTypeDistChart', 'monthDistEmpty', typeDistUrl, {
+                    year: $('#monthDistSettings').find('input[name="year"]').val(),
+                    month: $('#monthDistSettings').find('select[name="month"]').val()
+                }, monthDistRef);
             });
+            $('#monthDistSettings').find('button').click();
 
-            monthChartParameters.find('button').on('click', function () {
+            $('#yearDistSettings').find('button').on('click', function () {
+                loadTypeDistribution('yearTypeDistChart', 'yearDistEmpty', typeDistUrl, {
+                    year: $('#yearDistSettings').find('input[name="year"]').val()
+                }, yearDistRef);
+            });
+            $('#yearDistSettings').find('button').click();
+
+            // --- Rankings ---
+            let rankingUrl = '{{ route('corporation.ajax.paps.ranking', request()->route('corporation')) }}';
+
+            function loadRanking() {
+                let params = {
+                    year: $('#rankingSettings').find('input[name="year"]').val()
+                };
+                let month = $('#rankingSettings').find('select[name="month"]').val();
+                if (month) params.month = month;
+
                 $.ajax({
-                    url: '{{ route('corporation.ajax.paps.stacked', request()->route('corporation')) }}',
-                    data: {
-                        year: monthChartParameters.find('input[name="year"]').val(),
-                        month: monthChartParameters.find('select[name="month"]').val(),
-                        grouped: 1
-                    },
+                    url: rankingUrl,
+                    data: params,
                     success: function (data) {
-                        let pointFound = false;
-                        let seriesFound = false;
-                        let datasetLabels = [];
-                        let series = [];
-
-                        if (typeof (monthChart) !== 'undefined')
-                            monthChart.destroy();
-
-                        monthChartSettings.data.labels = [];
-                        monthChartSettings.data.datasets = [];
-                        $('#monthlyStackedChart').parent('.chart').find('p').remove();
+                        currentRankingData = data;
+                        let tbody = $('#rankingTable tbody');
+                        tbody.empty();
+                        $('#rankingEmpty').addClass('d-none');
 
                         if (data.length < 1) {
-                            $('#monthlyStackedChart').parent('.chart')
-                                .append('<p class="text-danger text-center">There are no data to display</p>');
+                            $('#rankingEmpty').removeClass('d-none');
                             return;
                         }
 
-                        $(data).each(function (index, record) {
-                            pointFound = false;
-                            seriesFound = false;
+                        let maxQty = Math.max.apply(null, data.map(function (d) { return parseFloat(d.qty); })) || 1;
+                        let trophyColors = {1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32'};
 
-                            if ($.inArray(record.name, monthChartSettings.data.labels) < 0)
-                                monthChartSettings.data.labels.push(record.name);
+                        $.each(data, function (index, item) {
+                            let rank = index + 1;
+                            let rankCell = rank <= 3
+                                ? '<i class="fas fa-trophy" style="color: ' + trophyColors[rank] + ';"></i>'
+                                : rank;
+                            let pct = Math.round(parseFloat(item.qty) / maxQty * 100);
 
-                            if ($.inArray(record.analytics, datasetLabels) < 0) {
-                                datasetLabels.push(record.analytics);
-                                monthChartSettings.data.datasets.push({label: record.analytics, data: []});
-                            }
-
-                            $(series).each(function (index, serie) {
-                                if (serie.label === record.name) {
-                                    seriesFound = true;
-                                    $(serie.points).each(function (index, point) {
-                                        if (point.name === record.analytics) {
-                                            pointFound = true;
-                                            point.value += parseFloat(record.qty);
-                                        }
-                                    });
-                                    if (!pointFound)
-                                        serie.points.push({name: record.analytics, value: parseFloat(record.qty)});
-                                }
-                            });
-
-                            if (!seriesFound)
-                                series.push({
-                                    label: record.name,
-                                    points: [{name: record.analytics, value: record.qty}]
-                                });
+                            tbody.append(
+                                '<tr>' +
+                                '<td class="text-center align-middle">' + rankCell + '</td>' +
+                                '<td class="align-middle">' + (item.name || 'Unknown') + '</td>' +
+                                '<td class="align-middle">' +
+                                    '<div class="d-flex align-items-center">' +
+                                        '<div class="progress flex-grow-1 mr-2" style="height:16px;">' +
+                                            '<div class="progress-bar bg-info" style="width:' + pct + '%"></div>' +
+                                        '</div>' +
+                                        '<strong>' + item.qty + '</strong>' +
+                                    '</div>' +
+                                '</td>' +
+                                '</tr>'
+                            );
                         });
-
-                        rainbow.setNumberRange(0, monthChartSettings.data.datasets.length);
-                        rainbow.setSpectrum(themeColor, '#dddddd');
-
-                        $(monthChartSettings.data.labels).each(function (labelIndex) {
-                            pointFound = false;
-                            $(monthChartSettings.data.datasets).each(function (datasetIndex, dataset) {
-                                dataset.backgroundColor = '#' + rainbow.colourAt(datasetIndex);
-                                $(series[labelIndex].points).each(function (pointIndex, point) {
-                                    if (point.name === dataset.label) {
-                                        pointFound = true;
-                                        dataset.data.push(parseFloat(point.value));
-                                    }
-                                });
-                                if (!pointFound)
-                                    dataset.data.push(0.0);
-                            });
-                        });
-
-                        monthChartSettings.options.title.text = 'grouped participation of ' +
-                            monthChartParameters.find('select[name="month"]').val() + '-' +
-                            monthChartParameters.find('input[name="year"]').val();
-
-                        monthChart = new Chart(document.getElementById('monthlyStackedChart').getContext('2d'), monthChartSettings);
                     }
                 });
-            });
+            }
 
-            yearChartParameters.find('button').click();
-            monthChartParameters.find('button').click();
+            $('#rankingSettings').find('.btn-info').on('click', loadRanking);
+            loadRanking();
+
+            // --- Export Excel ---
+            $('#exportRankingBtn').on('click', function () {
+                if (currentRankingData.length < 1) return;
+
+                let month = $('#rankingSettings').find('select[name="month"]').val();
+                let year = $('#rankingSettings').find('input[name="year"]').val();
+                let filename = 'pap_ranking_' + year + (month ? '_' + month : '') + '.xlsx';
+
+                let rows = '<tr><td>{{ trans('calendar::paps.rank_label') }}</td><td>{{ trans('calendar::paps.character_header') }}</td><td>{{ trans('calendar::paps.paps_header') }}</td></tr>';
+                $.each(currentRankingData, function (index, item) {
+                    rows += '<tr><td>' + (index + 1) + '</td><td>' + $('<span>').text(item.name || 'Unknown').html() + '</td><td>' + item.qty + '</td></tr>';
+                });
+
+                let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' +
+                    '<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>' +
+                    '<x:Name>Ranking</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>' +
+                    '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>' +
+                    '<body><table>' + rows + '</table></body></html>';
+
+                let blob = new Blob([html], {type: 'application/vnd.ms-excel;charset=utf-8;'});
+                let link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+            });
 
             function rgb2hex(rgb) {
                 try {
