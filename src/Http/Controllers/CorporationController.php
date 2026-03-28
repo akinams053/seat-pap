@@ -87,8 +87,8 @@ class CorporationController extends Controller
         }
 
         return $query
-            ->select('ct.analytics', 'ct.bg_color', DB::raw('SUM(kassie_calendar_paps.value) as qty'))
-            ->groupBy('ct.analytics', 'ct.bg_color')
+            ->select('ct.analytics', DB::raw('MIN(ct.bg_color) as bg_color'), DB::raw('SUM(kassie_calendar_paps.value) as qty'))
+            ->groupBy('ct.analytics')
             ->orderBy('qty', 'desc')
             ->get();
     }
