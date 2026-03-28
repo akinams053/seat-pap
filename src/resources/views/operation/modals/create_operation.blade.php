@@ -123,7 +123,9 @@
                     {{-- Operation FC --}}
                     <div class="form-group row">
                         <label for="fc"
-                               class="col-sm-3 col-form-label">{{ trans('calendar::seat.fleet_commander') }}</label>
+                               class="col-sm-3 col-form-label">{{ trans('calendar::seat.fleet_commander') }}
+                            <span class="text-danger">*</span>
+                        </label>
                         <div class="col-sm-9">
                             <input type="text" class="form-control" name="fc" required
                                    placeholder="{{ trans('calendar::seat.placeholder_fc') }}">
