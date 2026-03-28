@@ -147,9 +147,14 @@ Route::group([
 
         Route::get('find/{id}', 'OperationController@find');
 
-        Route::get('/{id}/paps', [
-            'as' => 'operation.paps',
-            'uses' => 'OperationController@paps',
+        Route::get('/{id}/paps/preview', [
+            'as' => 'operation.paps.preview',
+            'uses' => 'OperationController@papsPreview',
+        ]);
+
+        Route::post('/{id}/paps/confirm', [
+            'as' => 'operation.paps.confirm',
+            'uses' => 'OperationController@papsConfirm',
         ]);
 
     });

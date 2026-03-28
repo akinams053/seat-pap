@@ -27,6 +27,7 @@
     @include('calendar::operation.modals.confirm_activate')
     @include('calendar::operation.modals.subscribe')
     @include('calendar::operation.modals.details')
+    @include('calendar::operation.modals.confirm_pap')
 
     <div class="row">
         <div class="col-md-12">
@@ -234,6 +235,63 @@
                 table = $(this).find('#confirmed').DataTable();
                 table.destroy();
             });
+
+        // PAP 发放预览 + 确认
+        $(document).on('click', '.btn-pap-issue', function () {
+            var opId = $(this).data('op-id');
+            var opTitle = $(this).data('op-title');
+            var previewUrl = '/calendar/operation/' + opId + '/paps/preview';
+            var confirmUrl = '/calendar/operation/' + opId + '/paps/confirm';
+
+            // 重置弹窗状态
+            $('#pap-loading').show();
+            $('#pap-error, #pap-content, #pap-first-time, #pap-supplement, #pap-no-new').addClass('d-none');
+            $('#pap-confirm-btn').addClass('d-none');
+            $('#pap-new-list').empty();
+            $('#pap-op-title').text(opTitle);
+            $('#pap-confirm-form').attr('action', confirmUrl);
+
+            $('#modalPapConfirm').modal('show');
+
+            $.ajax({
+                url: previewUrl,
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    $('#pap-loading').hide();
+                    $('#pap-content').removeClass('d-none');
+
+                    if (data.is_first_time) {
+                        // 首次发放
+                        $('#pap-fleet-count').text(data.total_in_fleet);
+                        $('#pap-first-time').removeClass('d-none');
+                        $('#pap-confirm-btn').removeClass('d-none');
+                    } else if (data.new_count > 0) {
+                        // 补发
+                        $('#pap-new-count').text(data.new_count);
+                        $('#pap-total-fleet').text(data.total_in_fleet);
+                        $('#pap-issued-count').text(data.already_issued);
+                        var list = $('#pap-new-list');
+                        $.each(data.new_members, function (i, m) {
+                            list.append('<li class="list-group-item py-1"><span data-character-id="' + m.character_id + '">' + m.character_id + '</span></li>');
+                        });
+                        $('#pap-supplement').removeClass('d-none');
+                        $('#pap-confirm-btn').removeClass('d-none');
+                        // 解析角色名
+                        if (typeof ids_to_names === 'function') ids_to_names();
+                    } else {
+                        // 无新成员
+                        $('#pap-no-new').removeClass('d-none');
+                    }
+                },
+                error: function (xhr) {
+                    $('#pap-loading').hide();
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Unknown error';
+                    $('#pap-error-msg').text(msg);
+                    $('#pap-error').removeClass('d-none');
+                }
+            });
+        });
 
         // direct link
         @if(request()->route()->hasParameter('id'))

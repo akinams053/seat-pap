@@ -75,6 +75,7 @@ class OperationController extends Controller
     {
         $this->validate($request, [
             'title' => 'required',
+            'fc' => 'required',
             'importance' => 'required|between:0,5',
             'known_duration' => 'required',
             'time_start' => 'required_without_all:time_start_end|date|after_or_equal:today',
@@ -120,6 +121,7 @@ class OperationController extends Controller
     {
         $this->validate($request, [
             'title' => 'required',
+            'fc' => 'required',
             'importance' => 'required|between:0,5',
             'known_duration' => 'required',
             'time_start' => 'required_without_all:time_start_end|date|after_or_equal:today',
@@ -205,6 +207,10 @@ class OperationController extends Controller
         if ((auth()->user()->can('calendar.delete_all') || $operation->user->id == auth()->user()->id) && $operation != null) {
             if (!$operation->isUserGranted(auth()->user()))
                 return redirect()->back()->with('error', 'You are not granted to this operation !');
+
+            // 删除行动时同步撤回关联的 PAP
+            Pap::where('operation_id', $operation->id)->delete();
+
             Operation::destroy($operation->id);
             return redirect()->route('operation.index');
         }
@@ -309,112 +315,140 @@ class OperationController extends Controller
     }
 
     /**
-     * @param int $operation_id
-     * @return RedirectResponse
-     * @throws InvalidContainerDataException
+     * PAP 预览：获取舰队成员并对比已发放记录
      */
-    public function paps(int $operation_id): RedirectResponse
+    public function papsPreview(int $operation_id): JsonResponse
     {
-        $operation = Operation::find($operation_id);
-        if (is_null($operation))
-            return redirect()
-                ->back()
-                ->with('error', 'Unable to retrieve the requested operation.');
+        $check = $this->validatePapAccess($operation_id);
+        if ($check instanceof JsonResponse) return $check;
 
-        if (!$operation->isUserGranted(auth()->user()))
-            return redirect()->back()->with('error', 'You are not granted to this operation !');
-
-        if (is_null($operation->fc_character_id))
-            return redirect()
-                ->back()
-                ->with('error', 'No fleet commander has been set for this operation.');
-
-        if (!in_array($operation->fc_character_id, auth()->user()->associatedCharacterIds()))
-            return redirect()
-                ->back()
-                ->with('error', 'You are not the fleet commander or wrong character has been set.');
+        ['operation' => $operation, 'token' => $token] = $check;
 
         try {
-            $token = RefreshToken::findOrFail($operation->fc_character_id);
-        } catch (ModelNotFoundException $e) {
-            return redirect()
-                ->back()
-                ->with('error', 'Fleet commander is not already linked to SeAT. Unable to PAP the fleet.');
-        }
-
-        $client = $this->eseye($token);
-        $fleetId = null;
-
-        try {
-            Log::info('PAP: fetching fleet for character ' . $token->character_id . ', operation ' . $operation_id);
-
+            $client = $this->eseye($token);
             $fleet = $client->invoke('get', '/v1/characters/{character_id}/fleet/', [
                 'character_id' => $token->character_id,
             ]);
-
-            $fleetBody = $fleet->getBody();
-            $fleetId = $fleetBody->fleet_id;
-            Log::info('PAP: found fleet ' . $fleetId . ', fetching members...');
+            $fleetId = $fleet->getBody()->fleet_id;
 
             $membersResponse = $client->invoke('get', '/v1/fleets/{fleet_id}/members/', [
                 'fleet_id' => $fleetId,
             ]);
+            $members = collect($membersResponse->getBody());
 
+            // 已发放的角色 ID
+            $existingIds = Pap::where('operation_id', $operation_id)
+                ->pluck('character_id')
+                ->toArray();
+
+            $isFirstTime = empty($existingIds);
+            $newMembers = $members->filter(fn($m) => !in_array($m->character_id, $existingIds));
+
+            // 构造返回数据，character_id 列表用于前端通过 ids_to_names 解析
+            return response()->json([
+                'status' => 'success',
+                'fleet_id' => $fleetId,
+                'is_first_time' => $isFirstTime,
+                'total_in_fleet' => $members->count(),
+                'already_issued' => count($existingIds),
+                'new_count' => $newMembers->count(),
+                'new_members' => $newMembers->map(fn($m) => [
+                    'character_id' => $m->character_id,
+                    'ship_type_id' => $m->ship_type_id,
+                ])->values(),
+            ]);
+
+        } catch (RequestFailedException $e) {
+            return response()->json(['status' => 'error', 'message' => $e->getError()], 400);
+        } catch (EsiScopeAccessDeniedException $e) {
+            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_scope_error')], 403);
+        }
+    }
+
+    /**
+     * PAP 确认发放
+     */
+    public function papsConfirm(Request $request, int $operation_id): RedirectResponse
+    {
+        $check = $this->validatePapAccess($operation_id);
+        if ($check instanceof JsonResponse) {
+            return redirect()->back()->with('error', $check->getData()->message ?? 'Error');
+        }
+
+        ['operation' => $operation, 'token' => $token] = $check;
+        $client = $this->eseye($token);
+        $fleetId = null;
+
+        try {
+            $fleet = $client->invoke('get', '/v1/characters/{character_id}/fleet/', [
+                'character_id' => $token->character_id,
+            ]);
+            $fleetId = $fleet->getBody()->fleet_id;
+
+            $membersResponse = $client->invoke('get', '/v1/fleets/{fleet_id}/members/', [
+                'fleet_id' => $fleetId,
+            ]);
             $members = $membersResponse->getBody();
             $count = is_array($members) ? count($members) : count((array) $members);
-            Log::info('PAP: fleet has ' . $count . ' members');
 
+            $newCount = 0;
             foreach ($members as $member) {
-                Pap::firstOrCreate([
+                $created = Pap::firstOrCreate([
                     'character_id' => $member->character_id,
                     'operation_id' => $operation_id,
                 ], [
                     'ship_type_id' => $member->ship_type_id,
                     'join_time' => carbon($member->join_time)->toDateTimeString(),
                 ]);
+                if ($created->wasRecentlyCreated) $newCount++;
             }
 
-            Log::info('PAP: successfully processed ' . $count . ' members for operation ' . $operation_id);
-
-            // PAP 成功发放，更新舰队 MOTD
+            Log::info("PAP: issued for operation {$operation_id}, fleet {$fleetId}, total {$count}, new {$newCount}");
             $this->updateFleetMotd($client, $fleetId, $operation, $count, true);
 
         } catch (RequestFailedException $e) {
             Log::warning('PAP: ESI request failed - ' . $e->getCode() . ' - ' . $e->getError());
-
-            // 有 fleet_id 时尝试发送错误 MOTD
             if ($fleetId) {
                 $this->updateFleetMotd($client, $fleetId, $operation, 0, false, $e->getError());
             }
+            return redirect()->back()->with('error', $e->getError());
 
-            if ($e->getError() == 'Character is not in a fleet')
-                return redirect()
-                    ->back()
-                    ->with('error', $e->getError());
-
-            if ($e->getError() == 'The fleet does not exist or you don\'t have access to it!')
-                return redirect()
-                    ->back()
-                    ->with('error', sprintf('%s Ensure %s have the fleet boss and try again.', $e->getError(), $operation->fc));
-
-            return redirect()
-                ->back()
-                ->with('error', 'Esi respond with an unhandled error : (' . $e->getCode() . ') ' . $e->getError());
         } catch (EsiScopeAccessDeniedException $e) {
             Log::warning('PAP: ESI scope access denied for character ' . $token->character_id);
-
             if ($fleetId) {
                 $this->updateFleetMotd($client, $fleetId, $operation, 0, false, 'ESI scope access denied');
             }
-
-            return redirect()
-                ->back()
-                ->with('error', 'Registered tokens has not enough privileges. Please bind your character and pap again.');
+            return redirect()->back()->with('error', trans('calendar::paps.pap_scope_error'));
         }
 
-        return redirect()
-            ->back()
-            ->with('success', 'Fleet members has been successfully papped.');
+        return redirect()->back()->with('success', trans('calendar::paps.pap_issued_success', ['count' => $newCount, 'total' => $count]));
+    }
+
+    /**
+     * 校验 PAP 操作权限，返回 operation + token 或错误 JsonResponse
+     */
+    private function validatePapAccess(int $operationId): array|JsonResponse
+    {
+        $operation = Operation::find($operationId);
+        if (is_null($operation))
+            return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
+
+        if (!$operation->isUserGranted(auth()->user()))
+            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
+
+        if (is_null($operation->fc_character_id))
+            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_no_fc')], 400);
+
+        if (!in_array($operation->fc_character_id, auth()->user()->associatedCharacterIds()))
+            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_not_fc')], 403);
+
+        try {
+            $token = RefreshToken::findOrFail($operation->fc_character_id);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_no_token')], 400);
+        }
+
+        return ['operation' => $operation, 'token' => $token];
     }
 
     /**

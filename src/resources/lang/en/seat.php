@@ -129,7 +129,7 @@ return [
     'google_calendar' => 'Google Calendar',
 
     'paps' => 'Paps',
-    'track_fleet' => 'Track Fleet (ESI)',
+    'track_fleet' => 'Issue PAP',
 
     'analytic' => 'Analytic Axis',
     'quantifier' => 'Quantifier',

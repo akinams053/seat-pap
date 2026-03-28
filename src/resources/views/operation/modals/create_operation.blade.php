@@ -125,7 +125,7 @@
                         <label for="fc"
                                class="col-sm-3 col-form-label">{{ trans('calendar::seat.fleet_commander') }}</label>
                         <div class="col-sm-9">
-                            <input type="text" class="form-control" name="fc"
+                            <input type="text" class="form-control" name="fc" required
                                    placeholder="{{ trans('calendar::seat.placeholder_fc') }}">
                             <input type="hidden" name="fc_character_id">
                         </div>

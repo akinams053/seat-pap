@@ -133,7 +133,7 @@ return [
     'pvp' => 'PvP',
     'mining' => '开采',
     'untracked' => '未跟踪的',
-    'track_fleet' => '采集 PAP (ESI)',
+    'track_fleet' => 'PAP 发放',
     'list' => '列表',
 
     'motd_settings' => '舰队 MOTD 设置',
