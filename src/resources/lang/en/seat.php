@@ -129,6 +129,7 @@ return [
     'google_calendar' => 'Google Calendar',
 
     'paps' => 'Paps',
+    'track_fleet' => 'Track Fleet (ESI)',
 
     'analytic' => 'Analytic Axis',
     'quantifier' => 'Quantifier',

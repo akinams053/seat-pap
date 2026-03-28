@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Log;
 use Seat\Eseye\Exceptions\EsiScopeAccessDeniedException;
 use Seat\Eseye\Exceptions\InvalidContainerDataException;
 use Seat\Eseye\Exceptions\RequestFailedException;
@@ -344,15 +345,24 @@ class OperationController extends Controller
         $client = $this->eseye($token);
 
         try {
+            Log::info('PAP: fetching fleet for character ' . $token->character_id . ', operation ' . $operation_id);
+
             $fleet = $client->setVersion('v1')->invoke('get', '/characters/{character_id}/fleet/', [
                 'character_id' => $token->character_id,
             ]);
 
+            $fleetId = $fleet->getBody()->fleet_id;
+            Log::info('PAP: found fleet ' . $fleetId . ', fetching members...');
+
             $membersResponse = $client->setVersion('v1')->invoke('get', '/fleets/{fleet_id}/members/', [
-                'fleet_id' => $fleet->getBody()->fleet_id,
+                'fleet_id' => $fleetId,
             ]);
 
-            foreach ($membersResponse->getBody() as $member) {
+            $members = $membersResponse->getBody();
+            $count = count((array) $members);
+            Log::info('PAP: fleet has ' . $count . ' members');
+
+            foreach ($members as $member) {
                 Pap::firstOrCreate([
                     'character_id' => $member->character_id,
                     'operation_id' => $operation_id,
@@ -361,7 +371,11 @@ class OperationController extends Controller
                     'join_time' => carbon($member->join_time)->toDateTimeString(),
                 ]);
             }
+
+            Log::info('PAP: successfully processed ' . $count . ' members for operation ' . $operation_id);
         } catch (RequestFailedException $e) {
+            Log::warning('PAP: ESI request failed - ' . $e->getCode() . ' - ' . $e->getError());
+
             if ($e->getError() == 'Character is not in a fleet')
                 return redirect()
                     ->back()
@@ -376,6 +390,7 @@ class OperationController extends Controller
                 ->back()
                 ->with('error', 'Esi respond with an unhandled error : (' . $e->getCode() . ') ' . $e->getError());
         } catch (EsiScopeAccessDeniedException $e) {
+            Log::warning('PAP: ESI scope access denied for character ' . $token->character_id);
             return redirect()
                 ->back()
                 ->with('error', 'Registered tokens has not enough privileges. Please bind your character and pap again.');

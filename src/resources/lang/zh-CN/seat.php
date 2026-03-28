@@ -133,5 +133,6 @@ return [
     'pvp' => 'PvP',
     'mining' => '开采',
     'untracked' => '未跟踪的',
+    'track_fleet' => '采集 PAP (ESI)',
     'list' => '列表',
 ];
