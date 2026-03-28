@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\RefreshToken;
-use Seat\Eveapi\Models\Sde\InvType;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Web\Http\Controllers\Controller;
 
@@ -37,17 +36,15 @@ class CharacterController extends Controller
             ->groupBy('year', 'month')
             ->get();
 
-        $shipTypePaps = InvType::rightJoin('invGroups', 'invGroups.groupID', '=', 'invTypes.groupID')
-            ->leftJoin('kassie_calendar_paps', 'ship_type_id', '=', 'typeID')
-            ->where('categoryID', 6)
-            ->where(function ($query) use ($characterIds): void {
-                $query->whereIn('character_id', $characterIds)
-                    ->orWhereNull('character_id');
-            })
-            ->select('invGroups.groupID', 'categoryID', 'groupName', DB::raw('sum(value) as qty'))
-            ->groupBy('invGroups.groupID', 'categoryID', 'groupName')
-            ->orderBy('groupName')
-            ->get();
+        // 当月/当年 PAP 汇总
+        $thisMonthPaps = Pap::whereIn('character_id', $characterIds)
+            ->where('month', $today->month)
+            ->where('year', $today->year)
+            ->sum('value');
+
+        $thisYearPaps = Pap::whereIn('character_id', $characterIds)
+            ->where('year', $today->year)
+            ->sum('value');
 
         // 排名按主角色聚合
         $weeklyRanking = $this->getGlobalGroupedRanking([
@@ -67,7 +64,8 @@ class CharacterController extends Controller
 
         return view('calendar::character.paps', [
             'monthlyPaps' => $monthlyPaps,
-            'shipTypePaps' => $shipTypePaps,
+            'thisMonthPaps' => $thisMonthPaps,
+            'thisYearPaps' => $thisYearPaps,
             'weeklyRanking' => $weeklyRanking,
             'monthlyRanking' => $monthlyRanking,
             'yearlyRanking' => $yearlyRanking,

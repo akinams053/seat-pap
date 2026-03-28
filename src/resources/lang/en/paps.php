@@ -32,4 +32,7 @@ return [
     'type_distribution_header' => 'PAP Type Distribution',
     'main_character_grouped' => 'Grouped by main character',
     'no_data' => 'No data available.',
+
+    'this_month_paps' => 'This Month PAPs',
+    'this_year_paps' => 'This Year PAPs',
 ];

@@ -32,4 +32,7 @@ return [
     'type_distribution_header' => 'PAP 类型分布',
     'main_character_grouped' => '已按主角色聚合',
     'no_data' => '暂无数据。',
+
+    'this_month_paps' => '本月 PAP',
+    'this_year_paps' => '本年 PAP',
 ];
