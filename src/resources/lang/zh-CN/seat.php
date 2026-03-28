@@ -150,4 +150,17 @@ return [
     'motd_label_error' => '错误标题',
     'motd_label_footer_text' => '签名内容',
     'motd_label_footer_color' => '签名颜色',
+
+    'api_settings' => 'PAP API 设置',
+    'api_description' => '生成 API Token 允许外部服务（如 PAP 商店）查询 PAP 总数。Token 用于接口认证。',
+    'api_token_label' => 'API Token',
+    'api_usage_single' => '单角色查询',
+    'api_usage_batch' => '批量查询（最多 200 个）',
+    'api_token_not_set' => '尚未生成 API Token。点击下方按钮生成。',
+    'api_token_generate' => '生成 Token',
+    'api_token_regenerate' => '重新生成 Token',
+    'api_token_regenerated' => 'API Token 已重新生成。',
+    'api_token_delete' => '删除 Token',
+    'api_token_deleted' => 'API Token 已删除，外部 API 访问已关闭。',
+    'api_token_delete_confirm' => '确定要删除吗？这将禁用所有外部 API 访问。',
 ];

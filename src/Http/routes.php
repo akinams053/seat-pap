@@ -2,6 +2,25 @@
 
 use Illuminate\Support\Facades\Route;
 
+// PAP API — token 认证，供外部服务调用
+Route::group([
+    'namespace' => 'Seat\\Kassie\\Calendar\\Http\\Controllers',
+    'middleware' => ['api', 'calendar.api.token'],
+    'prefix' => 'api/calendar',
+], function (): void {
+
+    Route::get('/paps', [
+        'as' => 'api.calendar.paps.batch',
+        'uses' => 'ApiController@getBatchPaps',
+    ]);
+
+    Route::get('/paps/{character_id}', [
+        'as' => 'api.calendar.paps.character',
+        'uses' => 'ApiController@getCharacterPaps',
+    ])->where('character_id', '[0-9]+');
+
+});
+
 Route::group([
     'namespace' => 'Seat\Kassie\Calendar\Http\Controllers',
     'middleware' => ['web', 'auth', 'locale'],
@@ -148,6 +167,16 @@ Route::group([
         Route::post('motd', [
             'as' => 'setting.motd.update',
             'uses' => 'SettingController@updateMotd',
+        ]);
+
+        Route::post('api-token/regenerate', [
+            'as' => 'setting.api_token.regenerate',
+            'uses' => 'SettingController@regenerateApiToken',
+        ]);
+
+        Route::post('api-token/delete', [
+            'as' => 'setting.api_token.delete',
+            'uses' => 'SettingController@deleteApiToken',
         ]);
 
         Route::group([

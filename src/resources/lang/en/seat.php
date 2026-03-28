@@ -161,4 +161,17 @@ return [
     'motd_label_error' => 'Error Header',
     'motd_label_footer_text' => 'Footer Text',
     'motd_label_footer_color' => 'Footer Color',
+
+    'api_settings' => 'PAP API Settings',
+    'api_description' => 'Generate an API token to allow external services (e.g. PAP Shop) to query PAP totals. The token is used for authentication.',
+    'api_token_label' => 'API Token',
+    'api_usage_single' => 'Single Character',
+    'api_usage_batch' => 'Batch Query (max 200)',
+    'api_token_not_set' => 'No API token has been generated yet. Click the button below to create one.',
+    'api_token_generate' => 'Generate Token',
+    'api_token_regenerate' => 'Regenerate Token',
+    'api_token_regenerated' => 'API token has been regenerated.',
+    'api_token_delete' => 'Delete Token',
+    'api_token_deleted' => 'API token has been deleted. API access is now disabled.',
+    'api_token_delete_confirm' => 'Are you sure? This will disable all external API access.',
 ];

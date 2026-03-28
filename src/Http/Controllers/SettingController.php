@@ -5,6 +5,7 @@ namespace Seat\Kassie\Calendar\Http\Controllers;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seat\Kassie\Calendar\Models\Tag;
 use Seat\Web\Http\Controllers\Controller;
@@ -52,9 +53,12 @@ class SettingController extends Controller
             $motd[$field] = setting('kassie.calendar.' . $field, true) ?: self::MOTD_DEFAULTS[$field];
         }
 
+        $apiToken = setting('kassie.calendar.api_token', true) ?: '';
+
         return view('calendar::setting.index', [
             'tags' => $tags,
             'motd' => $motd,
+            'apiToken' => $apiToken,
         ]);
     }
 
@@ -77,5 +81,20 @@ class SettingController extends Controller
         setting(['kassie.calendar.motd_footer_text', mb_substr($footerText, 0, 100)], true);
 
         return redirect()->back()->with('success', trans('calendar::seat.motd_saved'));
+    }
+
+    public function regenerateApiToken(): RedirectResponse
+    {
+        $token = Str::random(48);
+        setting(['kassie.calendar.api_token', $token], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.api_token_regenerated'));
+    }
+
+    public function deleteApiToken(): RedirectResponse
+    {
+        setting(['kassie.calendar.api_token', ''], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.api_token_deleted'));
     }
 }

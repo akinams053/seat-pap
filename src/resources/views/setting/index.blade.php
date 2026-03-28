@@ -11,6 +11,8 @@
     @include('calendar::setting.includes.modals.edit_tag')
 
     @include('calendar::setting.includes.motd')
+
+    @include('calendar::setting.includes.api_token')
 @stop
 
 @push('head')

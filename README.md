@@ -27,6 +27,12 @@
   - PAP 类型分布饼图 — 年度（可按年份筛选）
   - 排名榜（可按年月筛选，支持导出 Excel）
 
+### PAP API
+- 提供 REST API 供外部服务（如 PAP 商店）查询主角色聚合后的 PAP 总数
+- 支持单角色查询和批量查询（最多 200 个）
+- Token 认证，无需用户二次登录或 SSO 授权
+- 在 **Calendar → Settings** 页面生成和管理 API Token
+
 ### MOTD 自定义
 - 在设置页面可自定义舰队 MOTD 的各要素颜色
 - 固定要素：标题、舰队名称、舰队人数、PAP 值、PAP 类型、发放时间
@@ -68,7 +74,7 @@ php artisan migrate
 |------|------|
 | `calendar.view` | 查看 operation 列表 |
 | `calendar.create` | 创建新 operation |
-| `calendar.setup` | 管理 tags 等设置 |
+| `calendar.setup` | 管理 tags、MOTD、API Token 等设置 |
 | `calendar.update_all` | 编辑他人的 operation |
 | `calendar.cancel_all` | 取消 / 关闭他人的 operation |
 | `calendar.delete_all` | 删除他人的 operation |
@@ -116,6 +122,106 @@ MOTD 更新失败不会影响 PAP 的正常发放。
 
 MOTD 的颜色和签名内容可在 **Calendar → Settings** 页面自定义。
 
+### PAP API
+
+本插件提供 REST API，允许外部服务（如 PAP 商店）查询主角色聚合后的 PAP 总数。**外部服务只需持有管理员生成的 API Token 即可调用，无需用户二次登录或 SSO 授权。**
+
+#### 配置步骤
+
+1. 导航到 **Calendar → Settings** 页面
+2. 在页面底部找到 **PAP API 设置** 卡片
+3. 点击 **生成 Token** 按钮
+4. 将生成的 Token 配置到外部服务中
+
+> 需要 `calendar.setup` 权限才能管理 API Token。
+
+#### 单角色查询
+
+适用于用户手动刷新个人 PAP 余额等场景。
+
+**请求**：
+
+```
+GET https://your-seat-domain/api/calendar/paps/{character_id}
+Authorization: Bearer <token>
+```
+
+**响应**：
+
+```json
+{
+    "status": "success",
+    "character_id": 2118151113,
+    "user_id": 120,
+    "total_pap": 3.0,
+    "sync_at": "2026-03-28 08:27:04"
+}
+```
+
+- `character_id`：主角色 ID（已自动聚合所有 alt）
+- `user_id`：SeAT 用户 ID
+- `total_pap`：2026 年起的 PAP 总数（主角色 + 所有 alt 合并）
+- `sync_at`：查询时间
+
+角色未找到时返回 `404`：
+
+```json
+{
+    "status": "error",
+    "message": "Character not found or not linked to a SeAT user."
+}
+```
+
+#### 批量查询
+
+适用于定时任务批量同步所有成员 PAP 的场景。单次最多 200 个角色。
+
+**请求**：
+
+```
+GET https://your-seat-domain/api/calendar/paps?characters=2118151113,2118151114,2118151115
+Authorization: Bearer <token>
+```
+
+**响应**：
+
+```json
+{
+    "status": "success",
+    "data": [
+        {"character_id": 2118151113, "user_id": 120, "total_pap": 3.0},
+        {"character_id": 2118151114, "user_id": 121, "total_pap": 5.0}
+    ],
+    "not_found": [2118151115],
+    "sync_at": "2026-03-28 02:00:04"
+}
+```
+
+- `data`：查询成功的角色列表
+- `not_found`：未找到或未绑定 SeAT 用户的角色 ID 列表
+
+#### 认证方式
+
+支持两种传递 Token 的方式：
+
+```bash
+# 方式一：HTTP Header（推荐）
+curl -H "Authorization: Bearer YOUR_TOKEN" https://your-seat-domain/api/calendar/paps/2118151113
+
+# 方式二：Query 参数
+curl "https://your-seat-domain/api/calendar/paps/2118151113?token=YOUR_TOKEN"
+```
+
+#### 错误码
+
+| HTTP 状态码 | 含义 |
+|-------------|------|
+| 200 | 查询成功 |
+| 400 | 请求参数缺失或角色数量超过 200 |
+| 401 | Token 错误或缺失 |
+| 404 | 角色未找到（仅单角色查询） |
+| 503 | 未配置 API Token |
+
 ### ESI Scope 配置
 
 本插件需要 FC 角色授权 `esi-fleets.write_fleet.v1` scope 来更新舰队 MOTD。SeAT 默认的 SSO scope 列表中不包含此项，需要手动添加。
@@ -158,6 +264,7 @@ esi-fleets.write_fleet.v1
 - 一个用户的所有 alt 角色产生的 PAP 会合并计入主角色名下
 - 角色 PAP 页面的图表展示的是该用户（含所有 alt）的汇总数据
 - 军团排名默认展示主角色聚合结果
+- API 返回的 `total_pap` 同样是主角色聚合后的结果
 
 ### Tag 与 Analytics
 
@@ -186,6 +293,7 @@ vendor/bin/rector process
 - 军团 PAP 页面（趋势图 + 类型分布 + 排名 + Excel 导出）
 - 设置页面 MOTD 颜色和签名自定义
 - 主角色聚合结果是否正确
+- PAP API 单角色查询 / 批量查询 / Token 认证 / 错误码
 
 ## 历史说明
 
