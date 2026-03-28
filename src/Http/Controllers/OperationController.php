@@ -351,14 +351,21 @@ class OperationController extends Controller
                 'character_id' => $token->character_id,
             ]);
 
-            $fleetId = $fleet->fleet_id;
+            Log::info('PAP: fleet response type: ' . get_class($fleet));
+            $fleetData = json_decode($fleet->raw ?? json_encode($fleet));
+            $fleetId = $fleetData->fleet_id ?? ($fleet->fleet_id ?? null);
+            if (!$fleetId) {
+                Log::error('PAP: could not extract fleet_id from response');
+                return redirect()->back()->with('error', 'Could not determine fleet ID from ESI response.');
+            }
             Log::info('PAP: found fleet ' . $fleetId . ', fetching members...');
 
             $membersResponse = $client->invoke('get', '/v1/fleets/{fleet_id}/members/', [
                 'fleet_id' => $fleetId,
             ]);
 
-            $members = is_array($membersResponse) ? $membersResponse : (array) $membersResponse;
+            $membersData = json_decode($membersResponse->raw ?? json_encode($membersResponse));
+            $members = is_array($membersData) ? $membersData : (array) $membersData;
             $count = count($members);
             Log::info('PAP: fleet has ' . $count . ' members');
 
