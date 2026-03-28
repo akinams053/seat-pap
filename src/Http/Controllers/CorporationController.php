@@ -110,7 +110,15 @@ class CorporationController extends Controller
         $year = (int)(request()->query('year') ?? carbon()->year);
         $month = request()->query('month') ? (int)request()->query('month') : null;
 
-        return response()->json($this->getTypeDistribution($corporation_id, $year, $month));
+        $data = $this->getTypeDistribution($corporation_id, $year, $month)
+            ->map(function ($item) {
+                $key = 'calendar::seat.' . $item->analytics;
+                $translated = trans($key);
+                $item->analytics = $translated !== $key ? $translated : $item->analytics;
+                return $item;
+            });
+
+        return response()->json($data);
     }
 
     public function getRankingJson(int $corporation_id): JsonResponse

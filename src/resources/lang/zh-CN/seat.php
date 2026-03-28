@@ -130,9 +130,9 @@ return [
     'analytic' => '解析轴',
     'quantifier' => '量化',
     'strategic' => '战略',
-    'pvp' => 'PvP',
+    'pvp' => '散打',
     'mining' => '开采',
-    'untracked' => '未跟踪的',
+    'other' => '其他',
     'track_fleet' => 'PAP 发放',
     'list' => '列表',
 

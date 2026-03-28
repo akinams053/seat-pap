@@ -46,7 +46,6 @@
                                 <option value="pvp">{{ trans('calendar::seat.pvp') }}</option>
                                 <option value="mining">{{ trans('calendar::seat.mining') }}</option>
                                 <option value="other">{{ trans('calendar::seat.other') }}</option>
-                                <option value="untracked">{{ trans('calendar::seat.untracked') }}</option>
                             </select>
                         </div>
                     </div>

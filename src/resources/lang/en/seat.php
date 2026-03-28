@@ -136,7 +136,7 @@ return [
     'strategic' => 'Strategic',
     'pvp' => 'PvP',
     'mining' => 'Mining',
-    'untracked' => 'Un-Tracked',
+    'other' => 'Other',
     'list' => 'List',
 
     'add_to_calendar' => 'Add To Calendar',
