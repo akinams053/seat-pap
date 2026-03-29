@@ -159,6 +159,12 @@ Route::group([
 
     });
 
+    // PAP 商店跳转
+    Route::get('shop/redirect', [
+        'as' => 'calendar.shop.redirect',
+        'uses' => 'SettingController@shopRedirect',
+    ]);
+
     Route::group([
         'prefix' => 'setting',
         'middleware' => 'can:calendar.setup'
@@ -182,6 +188,11 @@ Route::group([
         Route::post('api-token/delete', [
             'as' => 'setting.api_token.delete',
             'uses' => 'SettingController@deleteApiToken',
+        ]);
+
+        Route::post('shop-url', [
+            'as' => 'setting.shop_url.update',
+            'uses' => 'SettingController@updateShopUrl',
         ]);
 
         Route::group([

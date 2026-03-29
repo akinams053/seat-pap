@@ -163,4 +163,16 @@ return [
     'api_token_delete' => '删除 Token',
     'api_token_deleted' => 'API Token 已删除，外部 API 访问已关闭。',
     'api_token_delete_confirm' => '确定要删除吗？这将禁用所有外部 API 访问。',
+
+    'pap_shop' => 'PAP 商店',
+    'shop_settings' => 'PAP 商店跳转设置',
+    'shop_description' => '配置 PAP 商店地址后，成员可以从侧边栏直接跳转到商店，无需二次登录。跳转时会携带 JWT 令牌，商店用 API Token 验证签名。',
+    'shop_url_label' => '商店认证地址',
+    'shop_url_saved' => '商店地址已保存。',
+    'shop_url_invalid' => '商店地址格式不正确。',
+    'shop_url_not_configured' => '尚未配置商店地址，请在设置页面填写。',
+    'shop_token_not_configured' => '尚未生成 API Token，请先生成 Token。',
+    'shop_no_main_character' => '未找到主角色，无法跳转。',
+    'shop_jwt_info' => 'JWT 令牌结构',
+    'shop_jwt_sign_hint' => '签名密钥为上方的 API Token，算法 HMAC-SHA256。商店服务器用同一个 Token 验证签名。令牌有效期 60 秒。',
 ];

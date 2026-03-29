@@ -21,6 +21,13 @@ return [
                 'icon' => 'fas fa-cog',
                 'route' => 'setting.index',
                 'permission' => 'calendar.setup'
+            ],
+            [
+                'name' => 'PAP Shop',
+                'label' => 'calendar::seat.pap_shop',
+                'icon' => 'fas fa-shopping-cart',
+                'route' => 'calendar.shop.redirect',
+                'permission' => 'calendar.view'
             ]
         ]
     ]

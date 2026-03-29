@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Seat\Kassie\Calendar\Models\Tag;
+use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Web\Http\Controllers\Controller;
 
 /**
@@ -54,11 +55,13 @@ class SettingController extends Controller
         }
 
         $apiToken = setting('kassie.calendar.api_token', true) ?: '';
+        $shopUrl = setting('kassie.calendar.shop_url', true) ?: '';
 
         return view('calendar::setting.index', [
             'tags' => $tags,
             'motd' => $motd,
             'apiToken' => $apiToken,
+            'shopUrl' => $shopUrl,
         ]);
     }
 
@@ -96,5 +99,61 @@ class SettingController extends Controller
         setting(['kassie.calendar.api_token', ''], true);
 
         return redirect()->back()->with('success', trans('calendar::seat.api_token_deleted'));
+    }
+
+    public function updateShopUrl(Request $request): RedirectResponse
+    {
+        $url = trim($request->input('shop_url', ''));
+
+        if ($url !== '' && !filter_var($url, FILTER_VALIDATE_URL)) {
+            return redirect()->back()->with('error', trans('calendar::seat.shop_url_invalid'));
+        }
+
+        setting(['kassie.calendar.shop_url', $url], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.shop_url_saved'));
+    }
+
+    public function shopRedirect(): RedirectResponse
+    {
+        $shopUrl = setting('kassie.calendar.shop_url', true);
+        if (!$shopUrl) {
+            return redirect()->route('setting.index')
+                ->with('error', trans('calendar::seat.shop_url_not_configured'));
+        }
+
+        $apiToken = setting('kassie.calendar.api_token', true);
+        if (!$apiToken) {
+            return redirect()->route('setting.index')
+                ->with('error', trans('calendar::seat.shop_token_not_configured'));
+        }
+
+        $user = auth()->user();
+        $mainCharacterId = $user->main_character_id;
+        if (!$mainCharacterId) {
+            return redirect()->back()->with('error', trans('calendar::seat.shop_no_main_character'));
+        }
+
+        $characterName = CharacterInfo::find($mainCharacterId)?->name ?? trans('web::seat.unknown');
+
+        $header = $this->base64UrlEncode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
+        $payload = $this->base64UrlEncode(json_encode([
+            'sub'  => $user->id,
+            'main_character_id' => $mainCharacterId,
+            'name' => $characterName,
+            'iat'  => time(),
+            'exp'  => time() + 60,
+        ]));
+        $signature = $this->base64UrlEncode(hash_hmac('sha256', "$header.$payload", $apiToken, true));
+        $jwt = "$header.$payload.$signature";
+
+        $separator = str_contains($shopUrl, '?') ? '&' : '?';
+
+        return redirect("$shopUrl{$separator}token=$jwt");
+    }
+
+    private function base64UrlEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 }

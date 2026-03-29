@@ -174,4 +174,16 @@ return [
     'api_token_delete' => 'Delete Token',
     'api_token_deleted' => 'API token has been deleted. API access is now disabled.',
     'api_token_delete_confirm' => 'Are you sure? This will disable all external API access.',
+
+    'pap_shop' => 'PAP Shop',
+    'shop_settings' => 'PAP Shop Redirect',
+    'shop_description' => 'Configure the PAP shop URL to allow members to jump directly from the sidebar. A JWT token signed with the API Token is attached for authentication.',
+    'shop_url_label' => 'Shop Auth URL',
+    'shop_url_saved' => 'Shop URL saved.',
+    'shop_url_invalid' => 'Invalid shop URL format.',
+    'shop_url_not_configured' => 'Shop URL not configured. Please set it in Settings.',
+    'shop_token_not_configured' => 'API Token not generated. Please generate one first.',
+    'shop_no_main_character' => 'No main character found. Cannot redirect.',
+    'shop_jwt_info' => 'JWT Token Structure',
+    'shop_jwt_sign_hint' => 'Signed with the API Token above using HMAC-SHA256. The shop server verifies using the same token. JWT expires in 60 seconds.',
 ];
