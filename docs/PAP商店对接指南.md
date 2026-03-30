@@ -68,7 +68,7 @@ SeAT 和商店之间**共享一个密钥**，即插件设置页生成的 **API T
 
 ### 触发方式
 
-用户在 SeAT 侧边栏点击 **"PAP 商店"**，插件生成 JWT 并 302 重定向到商店。
+用户在 SeAT 侧边栏点击 **"PAP 商店"**，插件生成 JWT 并 302 重定向到商店。此入口对所有登录用户可见，无需额外权限。
 
 ### JWT 结构
 
@@ -300,6 +300,14 @@ Authorization: Bearer <API_TOKEN>
 
 `character_id` 可以是主角色或任意 alt 的 ID，结果都会聚合到同一个主角色下。
 
+#### 可选参数 `since`
+
+通过 `since` 参数可指定统计的起始日期（格式 `YYYY-MM-DD`），只统计该日期及之后的 PAP。不传时默认为 `2026-01-01`。
+
+```
+GET https://seat.example.com/api/calendar/paps/{character_id}?since=2026-03-01
+```
+
 **成功响应** (200)：
 
 ```json
@@ -308,6 +316,7 @@ Authorization: Bearer <API_TOKEN>
     "character_id": 2118151113,
     "user_id": 120,
     "total_pap": 3.0,
+    "since": "2026-01-01",
     "sync_at": "2026-03-29 08:27:04"
 }
 ```
@@ -316,7 +325,8 @@ Authorization: Bearer <API_TOKEN>
 |------|------|
 | `character_id` | 主角色 ID（已自动解析） |
 | `user_id` | SeAT user_id（与 JWT 中的 `sub` 一致） |
-| `total_pap` | 2026 年起所有 alt 的 PAP 合计 |
+| `total_pap` | `since` 日期起所有 alt 的 PAP 合计 |
+| `since` | 实际使用的起始日期（方便确认） |
 | `sync_at` | 查询时间 |
 
 **角色未找到** (404)：
@@ -339,14 +349,20 @@ GET https://seat.example.com/api/calendar/paps?characters=2118151113,2118151114,
 Authorization: Bearer <API_TOKEN>
 ```
 
+同样支持 `since` 参数：
+
+```
+GET https://seat.example.com/api/calendar/paps?characters=2118151113,2118151114&since=2026-03-01
+```
+
 **成功响应** (200)：
 
 ```json
 {
     "status": "success",
     "data": [
-        {"character_id": 2118151113, "user_id": 120, "total_pap": 3.0},
-        {"character_id": 2118151114, "user_id": 121, "total_pap": 5.0}
+        {"character_id": 2118151113, "user_id": 120, "total_pap": 3.0, "since": "2026-01-01"},
+        {"character_id": 2118151114, "user_id": 121, "total_pap": 5.0, "since": "2026-01-01"}
     ],
     "not_found": [2118151115],
     "sync_at": "2026-03-29 02:00:04"
@@ -369,7 +385,7 @@ Authorization: Bearer <API_TOKEN>
 
 1. 通过 `refresh_tokens` 表找到该角色所属的 SeAT 用户
 2. 获取该用户下所有关联角色（主角色 + 全部 alt）
-3. 对 `kassie_calendar_paps` 表中这些角色 2026 年起的 PAP 值求和
+3. 对 `kassie_calendar_paps` 表中这些角色在 `since` 日期（默认 2026-01-01）之后的 PAP 值求和
 4. 返回主角色 ID 和聚合后的总数
 
 ```

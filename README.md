@@ -30,8 +30,14 @@
 ### PAP API
 - 提供 REST API 供外部服务（如 PAP 商店）查询主角色聚合后的 PAP 总数
 - 支持单角色查询和批量查询（最多 200 个）
+- 支持 `since` 参数指定统计起始日期（默认 2026-01-01）
 - Token 认证，无需用户二次登录或 SSO 授权
 - 在 **Calendar → Settings** 页面生成和管理 API Token
+
+### PAP 商店跳转
+- 侧边栏 **PAP 商店** 入口对所有登录用户可见，无需额外权限
+- 跳转时携带 JWT 令牌（含用户 ID、主角色信息），商店用 API Token 验证签名
+- 管理员在设置页面配置商店地址
 
 ### MOTD 自定义
 - 在设置页面可自定义舰队 MOTD 的各要素颜色
@@ -184,6 +190,12 @@ GET https://your-seat-domain/api/calendar/paps/{character_id}
 Authorization: Bearer <token>
 ```
 
+可选参数 `since`（格式 `YYYY-MM-DD`）：只统计该日期之后的 PAP。不传时默认为 `2026-01-01`。
+
+```
+GET https://your-seat-domain/api/calendar/paps/{character_id}?since=2026-03-01
+```
+
 **响应**：
 
 ```json
@@ -192,13 +204,15 @@ Authorization: Bearer <token>
     "character_id": 2118151113,
     "user_id": 120,
     "total_pap": 3.0,
+    "since": "2026-01-01",
     "sync_at": "2026-03-28 08:27:04"
 }
 ```
 
 - `character_id`：主角色 ID（已自动聚合所有 alt）
 - `user_id`：SeAT 用户 ID
-- `total_pap`：2026 年起的 PAP 总数（主角色 + 所有 alt 合并）
+- `total_pap`：`since` 日期起的 PAP 总数（主角色 + 所有 alt 合并）
+- `since`：实际使用的起始日期
 - `sync_at`：查询时间
 
 角色未找到时返回 `404`：
@@ -221,14 +235,20 @@ GET https://your-seat-domain/api/calendar/paps?characters=2118151113,2118151114,
 Authorization: Bearer <token>
 ```
 
+同样支持 `since` 参数：
+
+```
+GET https://your-seat-domain/api/calendar/paps?characters=2118151113,2118151114&since=2026-03-01
+```
+
 **响应**：
 
 ```json
 {
     "status": "success",
     "data": [
-        {"character_id": 2118151113, "user_id": 120, "total_pap": 3.0},
-        {"character_id": 2118151114, "user_id": 121, "total_pap": 5.0}
+        {"character_id": 2118151113, "user_id": 120, "total_pap": 3.0, "since": "2026-01-01"},
+        {"character_id": 2118151114, "user_id": 121, "total_pap": 5.0, "since": "2026-01-01"}
     ],
     "not_found": [2118151115],
     "sync_at": "2026-03-28 02:00:04"

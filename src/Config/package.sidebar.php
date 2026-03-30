@@ -22,12 +22,19 @@ return [
                 'route' => 'setting.index',
                 'permission' => 'calendar.setup'
             ],
+        ]
+    ],
+    'pap-shop' => [
+        'name' => 'PAP Shop',
+        'label' => 'calendar::seat.pap_shop',
+        'icon' => 'fas fa-shopping-cart',
+        'route_segment' => 'calendar',
+        'entries' => [
             [
                 'name' => 'PAP Shop',
                 'label' => 'calendar::seat.pap_shop',
                 'icon' => 'fas fa-shopping-cart',
                 'route' => 'calendar.shop.redirect',
-                'permission' => 'calendar.view'
             ]
         ]
     ]
