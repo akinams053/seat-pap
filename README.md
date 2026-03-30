@@ -35,7 +35,7 @@
 - 在 **Calendar → Settings** 页面生成和管理 API Token
 
 ### PAP 商店跳转
-- 侧边栏 **PAP 商店** 入口对所有登录用户可见，无需额外权限
+- 侧边栏 **PAP 商店** 入口（需要 `calendar.view` 权限）
 - 跳转时携带 JWT 令牌（含用户 ID、主角色信息），商店用 API Token 验证签名
 - 管理员在设置页面配置商店地址
 
