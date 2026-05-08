@@ -58,7 +58,7 @@ class AuditController extends Controller
             ->count('o.id');
 
         $rows = $base
-            ->orderByRaw('latest_pap_at IS NULL, latest_pap_at DESC')
+            ->orderByRaw('MAX(p.created_at) IS NULL, MAX(p.created_at) DESC')
             ->offset((int) $request->input('start', 0))
             ->limit((int) $request->input('length', 25))
             ->get();
