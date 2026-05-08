@@ -10,7 +10,6 @@ use Illuminate\View\View;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\Sde\InvType;
 use Seat\Eveapi\Models\Sde\MapDenormalize;
-use Seat\Kassie\Calendar\Http\Controllers\Concerns\ValidatesPapAccess;
 use Seat\Kassie\Calendar\Models\Operation;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Kassie\Calendar\Models\PapAdjustment;
@@ -18,7 +17,16 @@ use Seat\Web\Http\Controllers\Controller;
 
 class AuditController extends Controller
 {
-    use ValidatesPapAccess;
+    /**
+     * 列名 → 排序用 SQL 表达式（白名单防注入）
+     */
+    private const SORT_COLUMNS = [
+        'title'        => 'o.title',
+        'fleet_end_at' => 'MAX(p.created_at)',
+        'pap_value'    => 'MAX(t.quantifier)',
+        'member_count' => 'COUNT(DISTINCT p.character_id)',
+        'pap_total'    => 'SUM(p.value)',
+    ];
 
     /**
      * 行动审查列表页
@@ -33,7 +41,7 @@ class AuditController extends Controller
      */
     public function operationsJson(Request $request): JsonResponse
     {
-        $associated = auth()->user()->associatedCharacterIds();
+        $canAudit = auth()->user()->can('calendar.create');
 
         $base = DB::table('calendar_operations as o')
             ->join('kassie_calendar_paps as p', 'p.operation_id', '=', 'o.id')
@@ -57,8 +65,15 @@ class AuditController extends Controller
             ->distinct()
             ->count('o.id');
 
+        // DataTables 排序参数：order[0][column]=列序号，columns[N][data]=列字段名，order[0][dir]=asc/desc
+        $orderColIdx = (int) $request->input('order.0.column', 1);
+        $orderDir = strtolower((string) $request->input('order.0.dir', 'desc'));
+        $orderDir = in_array($orderDir, ['asc', 'desc'], true) ? $orderDir : 'desc';
+        $orderColData = (string) $request->input("columns.$orderColIdx.data", 'fleet_end_at');
+        $orderExpr = self::SORT_COLUMNS[$orderColData] ?? 'MAX(p.created_at)';
+
         $rows = $base
-            ->orderByRaw('MAX(p.created_at) IS NULL, MAX(p.created_at) DESC')
+            ->orderByRaw("$orderExpr IS NULL, $orderExpr $orderDir")
             ->offset((int) $request->input('start', 0))
             ->limit((int) $request->input('length', 25))
             ->get();
@@ -72,7 +87,7 @@ class AuditController extends Controller
             'member_count' => (int) $r->member_count,
             'pap_value' => (float) $r->pap_value,
             'pap_total' => (float) $r->pap_total,
-            'is_fleet_commander' => $r->fc_character_id !== null && in_array($r->fc_character_id, $associated),
+            'can_audit' => $canAudit,
         ]);
 
         return response()->json([
@@ -118,9 +133,6 @@ class AuditController extends Controller
         )->implode(', ') ?: '—';
         $papValue = (float) ($operation->tags->max('quantifier') ?: 0);
 
-        $isFc = $operation->fc_character_id !== null
-            && in_array($operation->fc_character_id, auth()->user()->associatedCharacterIds());
-
         $members = $paps->map(fn($p) => [
             'character_id' => $p->character_id,
             'character_name' => $charNames->get($p->character_id, '#' . $p->character_id),
@@ -150,20 +162,26 @@ class AuditController extends Controller
                 'member_count' => $paps->count(),
                 'pap_total' => (float) $paps->sum('value'),
             ],
-            'is_fleet_commander' => $isFc,
+            'can_audit' => auth()->user()->can('calendar.create'),
             'members' => $members,
         ]);
     }
 
     /**
      * 写入奖惩记录并回写 paps.value
+     * 权限：calendar.create + 行动可见性
      */
     public function adjust(Request $request, int $operationId): JsonResponse
     {
-        $check = $this->validatePapAccess($operationId);
-        if ($check instanceof JsonResponse) return $check;
+        if (!auth()->user()->can('calendar.create'))
+            return response()->json(['status' => 'error', 'message' => 'Permission denied.'], 403);
 
-        ['operation' => $operation] = $check;
+        $operation = Operation::with('tags')->find($operationId);
+        if (is_null($operation))
+            return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
+
+        if (!$operation->isUserGranted(auth()->user()))
+            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
 
         $validated = $request->validate([
             'character_id' => 'required|integer',
@@ -182,13 +200,14 @@ class AuditController extends Controller
             ], 422);
 
         $signed = $validated['direction'] === 'deduct' ? -$validated['value'] : $validated['value'];
+        $operatorCharId = auth()->user()->main_character_id;
 
         $adjustment = PapAdjustment::create([
             'operation_id' => $operationId,
             'character_id' => $validated['character_id'],
             'value' => $signed,
             'reason' => $validated['reason'],
-            'created_by_character_id' => $operation->fc_character_id,
+            'created_by_character_id' => $operatorCharId,
             'created_at' => carbon(),
         ]);
 
@@ -199,7 +218,9 @@ class AuditController extends Controller
             ->where('character_id', $validated['character_id'])
             ->value('value');
 
-        $byName = CharacterInfo::find($operation->fc_character_id)?->name ?? '—';
+        $byName = $operatorCharId
+            ? (CharacterInfo::find($operatorCharId)?->name ?? '#' . $operatorCharId)
+            : '—';
 
         return response()->json([
             'status' => 'success',

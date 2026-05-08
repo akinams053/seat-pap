@@ -84,7 +84,7 @@ return [
     'audit_col_pap' => 'PAP',
     'audit_col_history' => '奖惩历史',
     'audit_btn_open' => 'PAP 审查',
-    'audit_not_fc_hint' => '非 FC',
+    'audit_no_permission_hint' => '无权限',
     'audit_target_member' => '目标成员',
     'audit_type_inherit_hint' => '与本次行动一致',
     'audit_amount' => '数量',

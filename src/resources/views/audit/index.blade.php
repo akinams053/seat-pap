@@ -78,7 +78,7 @@
             $('#audit-total').text(op.pap_total.toFixed(2));
             audit_state.current_pap_type = op.analytics;
 
-            var showActions = !!payload.is_fleet_commander;
+            var showActions = !!payload.can_audit;
             $('#audit-actions-th').toggle(showActions);
 
             var $tbody = $('#audit-members-table tbody').empty();
@@ -143,13 +143,13 @@
                 },
                 {data: null, orderable: false, searchable: false, className: 'text-center',
                     render: function (d, t, row) {
-                        if (row.is_fleet_commander) {
+                        if (row.can_audit) {
                             return '<button type="button" class="btn btn-xs btn-info btn-audit-open" ' +
                                 'data-op-id="' + row.id + '" data-op-title="' + escapeHtml(row.title) + '">' +
                                 '<i class="fas fa-search"></i> ' +
                                 '{{ trans('calendar::paps.audit_btn_open') }}</button>';
                         }
-                        return '<span class="text-muted">{{ trans('calendar::paps.audit_not_fc_hint') }}</span>';
+                        return '<span class="text-muted">{{ trans('calendar::paps.audit_no_permission_hint') }}</span>';
                     }
                 },
             ],
@@ -168,7 +168,7 @@
             $('#modalAuditMembers').modal('show');
 
             $.ajax({
-                url: audit_url.members_template.replace(/0$/, opId),
+                url: audit_url.members_template.replace('/operation/0/', '/operation/' + opId + '/'),
                 method: 'GET',
                 dataType: 'json',
                 success: function (payload) {
@@ -236,7 +236,7 @@
 
             var $btn = $(this).prop('disabled', true);
             $.ajax({
-                url: audit_url.adjust_template.replace(/0$/, audit_state.current_op_id),
+                url: audit_url.adjust_template.replace('/operation/0/', '/operation/' + audit_state.current_op_id + '/'),
                 method: 'POST',
                 data: {
                     _token: '{{ csrf_token() }}',

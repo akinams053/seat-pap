@@ -84,7 +84,7 @@ return [
     'audit_col_pap' => 'PAP',
     'audit_col_history' => 'Adjustments',
     'audit_btn_open' => 'Audit',
-    'audit_not_fc_hint' => 'Not FC',
+    'audit_no_permission_hint' => 'No permission',
     'audit_target_member' => 'Target',
     'audit_type_inherit_hint' => 'inherits from operation',
     'audit_amount' => 'Amount',
