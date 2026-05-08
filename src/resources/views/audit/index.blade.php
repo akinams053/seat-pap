@@ -79,22 +79,29 @@
             audit_state.current_pap_type = op.analytics;
 
             var showActions = !!payload.can_audit;
-            $('#audit-actions-th').toggle(showActions);
 
-            var $tbody = $('#audit-members-table tbody').empty();
+            // 销毁已存在的 DataTable，准备重建
+            var $table = $('#audit-members-table');
+            if ($.fn.DataTable.isDataTable($table)) {
+                $table.DataTable().destroy();
+            }
+
+            var $tbody = $table.find('tbody').empty();
             payload.members.forEach(function (m) {
                 var ship = escapeHtml(m.ship_name) +
                     ' <small class="text-muted">#' + m.ship_type_id + '</small>';
                 var sys = m.solar_system_name
                     ? escapeHtml(m.solar_system_name)
                     : '<span class="text-muted">—</span>';
+                // join_time 用 data-order 兜底（NULL 时让 DataTables 排到最后）
+                var joinOrder = m.join_time || '';
                 var tr = $('<tr>').attr('data-character-id', m.character_id);
                 tr.append('<td><img src="https://images.evetech.net/characters/' + m.character_id + '/portrait?size=32" ' +
                     'class="img-circle" style="height:24px;width:24px"> ' + escapeHtml(m.character_name) + '</td>');
                 tr.append('<td>' + ship + '</td>');
                 tr.append('<td>' + sys + '</td>');
-                tr.append('<td>' + escapeHtml(m.join_time || '—') + '</td>');
-                tr.append('<td class="text-right pap-value">' + m.value.toFixed(2) + '</td>');
+                tr.append('<td data-order="' + escapeHtml(joinOrder) + '">' + escapeHtml(m.join_time || '—') + '</td>');
+                tr.append('<td class="text-right pap-value" data-order="' + m.value + '">' + m.value.toFixed(2) + '</td>');
                 tr.append('<td class="audit-history">' + formatHistory(m.adjustments) + '</td>');
                 if (showActions) {
                     var actions =
@@ -107,8 +114,26 @@
                         'data-character-name="' + escapeHtml(m.character_name) + '">' +
                         '<i class="fas fa-minus"></i></button>';
                     tr.append('<td class="text-center">' + actions + '</td>');
+                } else {
+                    // 始终保持 7 列结构，DataTables 用 visible:false 隐藏整列
+                    tr.append('<td></td>');
                 }
                 $tbody.append(tr);
+            });
+
+            // 初始化 DataTable：默认按加入时间倒序，奖惩历史 / 操作不排序
+            $table.DataTable({
+                paging: false,
+                info: false,
+                searching: false,
+                order: [[3, 'desc']],
+                columnDefs: [
+                    { orderable: false, targets: [5, 6] },
+                    { visible: showActions, targets: 6 },
+                ],
+                language: {
+                    emptyTable: '{{ trans('calendar::paps.no_data') }}',
+                },
             });
 
             $tbody.find('[data-toggle="tooltip"]').tooltip();
@@ -248,7 +273,9 @@
                 success: function (resp) {
                     var charId = audit_state.current_member.character_id;
                     var $row = $('#audit-members-table tbody tr[data-character-id="' + charId + '"]');
-                    $row.find('.pap-value').text(Number(resp.new_value).toFixed(2));
+                    var $papCell = $row.find('.pap-value');
+                    $papCell.text(Number(resp.new_value).toFixed(2));
+                    $papCell.attr('data-order', resp.new_value);
 
                     var $hist = $row.find('.audit-history');
                     if ($hist.find('.audit-history-item').length === 0) {
@@ -263,6 +290,10 @@
                     $item.append(document.createTextNode(resp.adjustment.reason || ''));
                     $hist.append($item);
                     $hist.find('[data-toggle="tooltip"]').tooltip();
+
+                    // 通知 DataTables 重新读取该行 DOM 数据，保持当前排序与列宽
+                    var dt = $('#audit-members-table').DataTable();
+                    dt.row($row[0]).invalidate('dom').draw(false);
 
                     var $total = $('#audit-total');
                     $total.text((parseFloat($total.text()) + resp.adjustment.value).toFixed(2));
