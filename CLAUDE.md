@@ -266,7 +266,17 @@ PAP / 报表 / 汇总是本次重构必须优先保护的主线之一。
 
 特别注意：
 
-`CorporationController` 中存在较重的 query builder / SQL 聚合逻辑。修改这部分时，应优先保证**统计结果正确性**，不要为了“代码更漂亮”而轻易改变分组或聚合行为。
+`CorporationController` 中存在较重的 query builder / SQL 聚合逻辑。修改这部分时，应优先保证**统计结果正确性**，不要为了”代码更漂亮”而轻易改变分组或聚合行为。
+
+**MySQL 聚合别名 gotcha**：MySQL（包括 8.x）**不允许**在 `ORDER BY` / `HAVING` 中通过别名引用聚合函数结果，会报 `SQLSTATE[42S22] Reference '...' not supported (reference to group function)`。例如：
+
+```php
+->selectRaw('MAX(p.created_at) as latest_pap_at')
+->orderByRaw('latest_pap_at DESC')   // ❌ 报错
+->orderByRaw('MAX(p.created_at) DESC') // ✅ 正确
+```
+
+普通列别名可以；聚合别名必须在 `ORDER BY` / `HAVING` 里写完整表达式。子查询包一层也可绕开但成本更高。`AuditController::operationsJson` 即踩过此坑。
 
 另外，PAP 汇总在本项目中应默认优先考虑**主角色聚合**：
 
