@@ -19,10 +19,12 @@ class AuditController extends Controller
 {
     /**
      * 列名 → 排序用 SQL 表达式（白名单防注入）
+     * fleet_end_at 用 COALESCE 与显示逻辑保持一致：
+     * 优先 MAX(paps.created_at)，无值时回退 o.end_at
      */
     private const SORT_COLUMNS = [
         'title'        => 'o.title',
-        'fleet_end_at' => 'MAX(p.created_at)',
+        'fleet_end_at' => 'COALESCE(MAX(p.created_at), o.end_at)',
         'pap_value'    => 'MAX(t.quantifier)',
         'member_count' => 'COUNT(DISTINCT p.character_id)',
         'pap_total'    => 'SUM(p.value)',
