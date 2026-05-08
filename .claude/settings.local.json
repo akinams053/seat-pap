@@ -8,7 +8,14 @@
       "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Controllers/OperationController.php\")",
       "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Controllers/SettingController.php\")",
       "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Controllers/TagController.php\")",
-      "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Validation/SettingsValidation.php\")"
+      "Bash(php -l \"E:/AI/All projects/seat-pap/src/Http/Validation/SettingsValidation.php\")",
+      "Bash(php -l src/Models/Pap.php)",
+      "Bash(php -l src/Models/PapAdjustment.php)",
+      "Bash(php -l src/Http/Controllers/AuditController.php)",
+      "Bash(php -l src/Http/Controllers/Concerns/ValidatesPapAccess.php)",
+      "Bash(php -l src/Http/Controllers/OperationController.php)",
+      "WebFetch(domain:github.com)",
+      "WebSearch"
     ]
   }
 }

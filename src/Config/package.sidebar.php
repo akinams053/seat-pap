@@ -16,6 +16,13 @@ return [
                 'permission' => 'calendar.view'
             ],
             [
+                'name' => 'Audit',
+                'label' => 'calendar::seat.audit',
+                'icon' => 'fas fa-clipboard-check',
+                'route' => 'audit.index',
+                'permission' => 'calendar.view'
+            ],
+            [
                 'name' => 'Settings',
                 'label' => 'calendar::seat.settings',
                 'icon' => 'fas fa-cog',

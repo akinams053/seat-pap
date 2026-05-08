@@ -5,7 +5,6 @@ namespace Seat\Kassie\Calendar\Http\Controllers;
 use Carbon\Carbon;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\View\Factory;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,9 +15,11 @@ use Seat\Eseye\Exceptions\EsiScopeAccessDeniedException;
 use Seat\Eseye\Exceptions\InvalidContainerDataException;
 use Seat\Eseye\Exceptions\RequestFailedException;
 use Seat\Eveapi\Models\RefreshToken;
+use Seat\Kassie\Calendar\Http\Controllers\Concerns\ValidatesPapAccess;
 use Seat\Kassie\Calendar\Models\Attendee;
 use Seat\Kassie\Calendar\Models\Operation;
 use Seat\Kassie\Calendar\Models\Pap;
+use Seat\Kassie\Calendar\Models\PapAdjustment;
 use Seat\Kassie\Calendar\Models\Tag;
 use Seat\Services\Contracts\EsiClient;
 use Seat\Services\Exceptions\SettingException;
@@ -31,6 +32,8 @@ use Seat\Web\Models\Acl\Role;
  */
 class OperationController extends Controller
 {
+    use ValidatesPapAccess;
+
     /**
      * OperationController constructor.
      */
@@ -208,8 +211,9 @@ class OperationController extends Controller
             if (!$operation->isUserGranted(auth()->user()))
                 return redirect()->back()->with('error', 'You are not granted to this operation !');
 
-            // 删除行动时同步撤回关联的 PAP
+            // 删除行动时同步撤回关联的 PAP 与审查记录
             Pap::where('operation_id', $operation->id)->delete();
+            PapAdjustment::where('operation_id', $operation->id)->delete();
 
             Operation::destroy($operation->id);
             return redirect()->route('operation.index');
@@ -396,13 +400,16 @@ class OperationController extends Controller
             $count = is_array($members) ? count($members) : count((array) $members);
 
             $newCount = 0;
+            $now = carbon();
             foreach ($members as $member) {
                 $created = Pap::firstOrCreate([
                     'character_id' => $member->character_id,
                     'operation_id' => $operation_id,
                 ], [
                     'ship_type_id' => $member->ship_type_id,
+                    'solar_system_id' => $member->solar_system_id ?? null,
                     'join_time' => carbon($member->join_time)->toDateTimeString(),
+                    'created_at' => $now,
                 ]);
                 if ($created->wasRecentlyCreated) $newCount++;
             }
@@ -430,30 +437,8 @@ class OperationController extends Controller
 
     /**
      * 校验 PAP 操作权限，返回 operation + token 或错误 JsonResponse
+     * 实现已抽到 ValidatesPapAccess trait
      */
-    private function validatePapAccess(int $operationId): array|JsonResponse
-    {
-        $operation = Operation::with('tags')->find($operationId);
-        if (is_null($operation))
-            return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
-
-        if (!$operation->isUserGranted(auth()->user()))
-            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
-
-        if (is_null($operation->fc_character_id))
-            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_no_fc')], 400);
-
-        if (!in_array($operation->fc_character_id, auth()->user()->associatedCharacterIds()))
-            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_not_fc')], 403);
-
-        try {
-            $token = RefreshToken::findOrFail($operation->fc_character_id);
-        } catch (ModelNotFoundException $e) {
-            return response()->json(['status' => 'error', 'message' => trans('calendar::paps.pap_no_token')], 400);
-        }
-
-        return ['operation' => $operation, 'token' => $token];
-    }
 
     /**
      * PAP 发放后更新舰队 MOTD

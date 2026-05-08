@@ -395,6 +395,11 @@ GET https://seat.example.com/api/calendar/paps?characters=2118151113,2118151114&
   total_pap = PAP(A) + PAP(B) + PAP(C)
 ```
 
+> **关于 `total_pap` 的语义**：返回值已经包含 FC 在「行动审查」中做的所有奖励 / 扣除调整。
+> SeAT 侧每次 FC 完成奖惩，对应行动+成员的 `paps.value` 会被实时回写为「基础值 + Σ调整」。
+> 商店端无需关心调整记录，定期同步 `total_pap` 即可获得最新余额。
+> 如果某成员被扣到负数，API 已用 `max(0, total_pap)` 兜底，商店端不会收到负值。
+
 ---
 
 ## 第五部分：对商店的要求

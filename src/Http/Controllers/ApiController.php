@@ -116,7 +116,8 @@ class ApiController
         return [
             'character_id' => $mainCharacterId,
             'user_id' => $user->id,
-            'total_pap' => (float) $totalPap,
+            // 行动审查可能扣到负值，对外兜底为 0 避免商店出现负余额
+            'total_pap' => max(0.0, (float) $totalPap),
             'since' => $since->toDateString(),
         ];
     }

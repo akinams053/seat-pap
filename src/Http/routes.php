@@ -157,6 +157,33 @@ Route::group([
             'uses' => 'OperationController@papsConfirm',
         ]);
 
+        Route::get('/{id}/audit/members', [
+            'as' => 'operation.audit.members',
+            'uses' => 'AuditController@membersJson',
+        ])->where('id', '[0-9]+');
+
+        Route::post('/{id}/audit/adjust', [
+            'as' => 'operation.audit.adjust',
+            'uses' => 'AuditController@adjust',
+        ])->where('id', '[0-9]+');
+
+    });
+
+    // 行动审查
+    Route::group([
+        'prefix' => 'audit',
+    ], function (): void {
+
+        Route::get('/', [
+            'as' => 'audit.index',
+            'uses' => 'AuditController@index',
+        ]);
+
+        Route::get('/operations', [
+            'as' => 'audit.operations.json',
+            'uses' => 'AuditController@operationsJson',
+        ]);
+
     });
 
     // PAP 商店跳转

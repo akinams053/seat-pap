@@ -5,3 +5,4 @@ composer.lock
 .project
 .buildpath
 .ace-tool/
+audit-preview.html

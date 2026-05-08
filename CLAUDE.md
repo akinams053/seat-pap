@@ -33,6 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - operation 生命周期管理
 - attendee / 报名 / 注册流程
 - PAP 功能
+- **行动审查（PAP 奖惩调整）** —— FC 对已发放 PAP 的事后调整
 - 小队 / 舰队相关 operation 流程
 - character / corporation 统计能力
 - summary / aggregation / analytics 相关视图与汇总能力
@@ -228,6 +229,7 @@ PAP 不仅要保留，还必须支持**按主角色汇总**：
 - `Attendee`：每个用户 / 角色的报名与参与状态
 - `Tag`：分类能力；历史上也曾用于 integration filtering
 - `Pap`：PAP 数据与统计来源
+- `PapAdjustment`：行动审查产生的奖惩记录（每条独立行，含金额、理由、操作人、时间）
 
 核心关系包括：
 
@@ -235,6 +237,7 @@ PAP 不仅要保留，还必须支持**按主角色汇总**：
 - `Operation` has many `Attendee`
 - `Operation` belongs to many `Tag`
 - `Pap` 支撑 character / corporation 维度的统计与报表
+- `PapAdjustment` 通过 (operation_id, character_id) 关联到 `Pap`；写入后通过 `Pap::recomputeValueFor()` 静态方法回写 `paps.value`，保证下游统计与商店 API 不需要任何改动即可同步最终值
 
 ### 一个必须注意的兼容性细节
 
@@ -252,10 +255,14 @@ PAP / 报表 / 汇总是本次重构必须优先保护的主线之一。
 - `src/Http/Controllers/CorporationController.php`
 - `src/Http/Controllers/LookupController.php`
 - `src/Http/Controllers/OperationController.php`
+- `src/Http/Controllers/AuditController.php` —— 行动审查列表 + 成员明细 JSON + 奖惩入库端点
+- `src/Http/Controllers/Concerns/ValidatesPapAccess.php` —— PAP 发放 / 审查共享的 FC 校验 trait
 - `src/Models/Pap.php`
+- `src/Models/PapAdjustment.php`
 - `src/resources/views/character/`
 - `src/resources/views/corporation/`
-- `src/database/migrations/` 下与 PAP / analytics 相关的 migration
+- `src/resources/views/audit/` —— 行动审查列表页与两个 modal
+- `src/database/migrations/` 下与 PAP / analytics / audit 相关的 migration
 
 特别注意：
 
@@ -264,8 +271,10 @@ PAP / 报表 / 汇总是本次重构必须优先保护的主线之一。
 另外，PAP 汇总在本项目中应默认优先考虑**主角色聚合**：
 
 - 如涉及用户维度汇总，应优先通过 SeAT 用户与 main character 的关系归并 alt 数据
-- 如果某个页面既支持单角色视图又支持汇总视图，应明确区分“角色明细”和“主角色汇总”两种语义
+- 如果某个页面既支持单角色视图又支持汇总视图，应明确区分”角色明细”和”主角色汇总”两种语义
 - 调整查询时，要验证主角色汇总后的 totals 没有因为 join / groupBy 变化而被放大或丢失
+
+**PAP 值的来源**：`paps.value` 字段是”基础 PAP + 全部审查调整”的最终值。基础值在 `papsConfirm` 写入时由 `Pap::save()` 设为 operation tag max(quantifier)；审查通过 `PapAdjustment` 写入新行后调用 `Pap::recomputeValueFor($opId, $charId)` 回写 `paps.value`。**任何统计 SQL / 外部 API 都直接读 `paps.value`，不要再去单独 sum 调整表**——这是设计上让上层逻辑零改动的关键。
 
 ## 可视为删除候选的通知与集成代码
 

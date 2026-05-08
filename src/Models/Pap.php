@@ -11,9 +11,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Support\Facades\DB;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\RefreshToken;
 use Seat\Eveapi\Models\Sde\InvType;
+use Seat\Eveapi\Models\Sde\MapDenormalize;
 use Seat\Web\Models\User;
 
 /**
@@ -50,7 +52,7 @@ class Pap extends Model
      * @var array
      */
     protected $fillable = [
-        'operation_id', 'character_id', 'ship_type_id', 'join_time', 'value',
+        'operation_id', 'character_id', 'ship_type_id', 'solar_system_id', 'join_time', 'value', 'created_at',
     ];
 
     /**
@@ -121,5 +123,35 @@ class Pap extends Model
             ->withDefault([
                 'typeName' => trans('web::seat.unknown'),
             ]);
+    }
+
+    /**
+     * @return HasOne
+     */
+    public function solarSystem(): HasOne
+    {
+        return $this->hasOne(MapDenormalize::class, 'itemID', 'solar_system_id')
+            ->withDefault([
+                'itemName' => trans('web::seat.unknown'),
+            ]);
+    }
+
+    /**
+     * 重新计算指定行动 + 角色的最终 PAP 值并写回 paps.value
+     * 最终值 = operation tag max(quantifier) + Σ adjustments
+     */
+    public static function recomputeValueFor(int $operationId, int $characterId): void
+    {
+        $operation = Operation::with('tags')->find($operationId);
+        $baseValue = $operation?->tags->max('quantifier') ?: 0;
+
+        $adjustSum = (float) PapAdjustment::where('operation_id', $operationId)
+            ->where('character_id', $characterId)
+            ->sum('value');
+
+        DB::table('kassie_calendar_paps')
+            ->where('operation_id', $operationId)
+            ->where('character_id', $characterId)
+            ->update(['value' => $baseValue + $adjustSum]);
     }
 }

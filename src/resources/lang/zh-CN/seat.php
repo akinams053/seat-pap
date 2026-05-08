@@ -6,6 +6,7 @@ return [
 
     'settings' => '设置',
     'operations' => '行动',
+    'audit' => '行动审查',
 
     'all_operations' => '所有行动',
     'incoming_operations' => '即将到来',

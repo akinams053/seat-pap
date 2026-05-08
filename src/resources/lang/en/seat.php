@@ -6,6 +6,7 @@ return [
 
     'settings' => 'Settings',
     'operations' => 'Operations',
+    'audit' => 'Operation Audit',
 
     'all_operations' => 'All operations',
     'incoming_operations' => 'Incoming',
