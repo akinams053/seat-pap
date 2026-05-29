@@ -91,7 +91,6 @@
                     </span>
                 </div>
                 <div class="card-body">
-                    {{-- 购买区占位：阶段 3 完善 --}}
                     @php
                         $myNodeNumbers = $lottery->nodes
                             ->filter(fn($n) => $n->user_id == $my_user_id
