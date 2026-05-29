@@ -325,6 +325,42 @@ reason = 抽奖取消，退还节点 #01, #08, #33
 - index(`lottery_id`, `user_id`)
 - index(`pap_adjustment_id`)
 
+### 3.4 前置数据库改造（已决策）
+
+抽奖功能依赖两处现有 schema 改造，必须在阶段 1 最先完成，否则会导致数据溢出或写入失败。
+
+#### 3.4.1 拓宽 PAP 金额字段精度
+
+现有字段精度太小，存不下抽奖累计消费产生的负数：
+
+| 字段 | 现状 | 改为 | 上限 |
+|---|---|---|---|
+| `kassie_calendar_paps.value` | `decimal(5,2)` | `decimal(8,2)` | ±999,999.99 |
+| `kassie_calendar_pap_adjustments.value` | `decimal(6,2)` | `decimal(8,2)` | ±999,999.99 |
+
+要点：
+
+- 两个字段都必须保持**有符号**，能存负数（抽奖扣费、扣罚）。
+- `node_price` 同样用 `decimal(8,2)`，三处精度统一。
+- 这是前向安全改造，只扩大范围，不影响既有数据。
+
+> 背景：原 `paps.value` 仅 `decimal(5,2)`（上限 ±999.99）。`recomputeValueFor()` 会把 `base(0) + Σadjustments` 回写进该字段，一旦用户抽奖累计消费超过 999.99 就会溢出报错。
+
+#### 3.4.2 扩展 `analytics` enum
+
+抽奖专用 tag 要用 `analytics = lottery`，但现有 enum 没有该值：
+
+```text
+现状：enum('analytics', ['strategic','pvp','mining','other','untracked'])
+改为：enum('analytics', ['strategic','pvp','mining','other','untracked','lottery'])
+```
+
+要点：
+
+- 加一条 migration 扩展该 enum，新增 `lottery`。
+- 抽奖专用 tag 固定 `analytics = lottery`、`quantifier = 0`。
+- 好处：行动审查列表 / operation 列表可直接靠该类型识别并标记抽奖行动。
+
 ---
 
 ## 4. 与现有 PAP / 行动审查的集成
@@ -366,20 +402,41 @@ reason = 抽奖取消，退还节点 #...
 
 这样审计链完整。
 
-### 4.4 行动审查页语义
+### 4.4 行动审查页语义（已决策：混在一起 + 打标签）
 
-抽奖 operation 在行动审查中应能看到：
+#### 4.4.1 列表与流水的两个层面
 
-- 购买节点成员；
-- 当前该抽奖行动下的 PAP 值，一般为负数或退款后为 0；
-- 奖惩历史，包括购买扣费、退款、管理员手动调整。
+要先区分两个不同层面的“一条”，避免混淆：
 
-第一版可以不大改 `AuditController`，但建议后续优化：
+| 层面 | 一个抽奖行动产生几条 | 出现在哪 |
+|---|---|---|
+| **审查列表的行** | 就 **1 条**（= 1 个 operation） | 审查列表主页 |
+| **某成员的扣费流水**（`PapAdjustment`） | 每次购买 1 条、退款再 1 条 | 该成员的明细弹窗内 |
 
-- 在行动审查列表中标识“抽奖行动”；
-- 抽奖行动的“单 PAP”显示为 `0` 或 `—`；
-- 总额为负数时显示为“消费 PAP”；
-- 从审查明细页提供跳转到抽奖详情页的链接。
+也就是说：
+
+- 审查列表里，**一个抽奖行动就是一行**，和普通行动完全一样；点进去是该行动下所有购买者（每人作为一个成员）。
+- “每次购买新增一条”指的是成员明细弹窗里**那个人的扣费流水**，等同于普通行动中 FC 多次手动奖惩同一个人留下的多条流水，**不是列表里的独立行**。
+- `paps` 表以 `(operation_id, character_id)` 为主键，**一个人在一个抽奖里只有一条 pap 记录**；买多次只是不断累加 `PapAdjustment` 并回写这一条的 `value`。
+
+#### 4.4.2 默认行为（几乎零改动即可用）
+
+抽奖 operation 因为有购买产生的 pap 记录，会**自动出现在审查列表**，且：
+
+- **单 PAP**（`MAX(t.quantifier)`）= `0`（抽奖 tag quantifier=0）。
+- **总额**（`SUM(p.value)`）= 负数（全员净消费）。
+- **成员明细弹窗**（`membersJson`）零改动即可用：每个成员的 `value` 是其净消费（负数），`adjustments` 列表天然展示每条购买扣费（reason 形如“购买抽奖节点 N 个：#01...”）和退款——这本身就是完整审计链。
+
+#### 4.4.3 列表层面的处理：混在一起 + 打标签
+
+抽奖行动仍出现在同一个审查列表中，但需要可视化区分：
+
+- 列表中给抽奖行动加一个“抽奖”徽标（靠 `analytics = lottery` 或 join `lotteries` 表识别）。
+- 抽奖行动的“单 PAP”显示为 `—`（而非 `0`），避免和真实 PAP 混淆。
+- 总额为负数时显示为“消费 PAP xxx”。
+- 从审查明细弹窗提供跳转到抽奖详情页的链接。
+
+> FC 仍可在审查页对抽奖行动做手动奖惩调整，但按 §1.8，这只调整 PAP 金额，**不影响节点数量或中奖概率**。
 
 ---
 
@@ -738,11 +795,13 @@ draft -> open -> sold_out -> drawn
 
 ### 阶段 1：数据结构与基础模型
 
-1. 新增 lottery / prize / node migrations。
-2. 新增 `Lottery`、`LotteryPrize`、`LotteryNode` 模型。
-3. 建立与 `Operation` 的关系。
-4. 准备系统保留的抽奖专用 tag：`quantifier = 0`，`analytics = lottery`。
-5. 统计识别以 lottery 表关联为主，抽奖 tag 作为 UI 和筛选辅助。
+1. **前置改造（最先做）**：拓宽金额字段精度 —— `kassie_calendar_paps.value` 与 `kassie_calendar_pap_adjustments.value` 均改为 `decimal(8,2)`（有符号），见 §3.4.1。
+2. **前置改造（最先做）**：扩展 `calendar_tags.analytics` enum，新增 `lottery`，见 §3.4.2。
+3. 新增 lottery / prize / node migrations。
+4. 新增 `Lottery`、`LotteryPrize`、`LotteryNode` 模型。
+5. 建立与 `Operation` 的关系。
+6. 准备系统保留的抽奖专用 tag：`quantifier = 0`，`analytics = lottery`。
+7. 统计识别以 lottery 表关联为主，抽奖 tag 作为 UI 和筛选辅助。
 
 ### 阶段 2：创建与展示
 
@@ -780,10 +839,12 @@ draft -> open -> sold_out -> drawn
 
 ### 阶段 6：行动审查友好化
 
-1. 行动审查列表标识抽奖行动。
-2. 抽奖行动明细提供跳转抽奖详情。
-3. 文案区分“PAP 发放”与“PAP 消费”。
-4. 保持手动审查调整不影响节点。
+抽奖行动会自动出现在审查列表（有 pap 记录即出现），成员明细弹窗几乎零改动即可用，见 §4.4。本阶段只做列表层面的可视化区分：
+
+1. 列表中给抽奖行动加“抽奖”徽标（靠 `analytics = lottery` 或 join `lotteries` 表识别）。
+2. 抽奖行动“单 PAP”显示为 `—`，总额负数显示为“消费 PAP”。
+3. 成员明细弹窗提供跳转抽奖详情页的链接。
+4. 保持手动审查调整不影响节点（只调金额，见 §1.8）。
 
 ### 阶段 7：军团统计与导出调整
 
@@ -853,6 +914,23 @@ operation tag max(quantifier) + adjustments sum
 - 只有 `sold_out` 可以开奖。
 - `drawn` 后不能取消和退款。
 - `cancelled` 后不能再次退款。
+
+### 11.5 购买后不要再 plain-save `Pap`
+
+`Pap::save()` 每次都会把 `value` 重置为 `tags.max(quantifier)`（对抽奖 tag 即 0）。
+
+因此购买流程必须遵守：
+
+- 首次为购买者建 PAP 行时用 `save()`（此时 value=0，正确）。
+- 之后所有扣费 / 退款**只走 `Pap::recomputeValueFor()`**，**绝不再调普通 `save()`**，否则已累积的扣费会被重置为 0，直到下次 recompute 才恢复。
+
+### 11.6 抽奖的“可用 PAP”用独立查询，不要 floor 到 0
+
+抽奖余额计算**不能复用**任何把负值 floor 到 0 的逻辑（例如旧 PAP 商店 API 的 `max(0, total_pap)`，该商店在本分支已停用）。
+
+- 抽奖可用 PAP 用独立查询，负数照实表达。
+- 购买校验必须在事务内重新计算余额，不信页面显示值（见 §6.4）。
+- floor 到 0 会让透支用户“看起来有 0、实则欠账”，甚至变相抹掉欠账。
 
 ---
 
