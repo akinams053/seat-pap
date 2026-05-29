@@ -78,6 +78,9 @@ class Lottery extends Model
             ['analytics' => 'lottery'],
             [
                 'name' => 'PAP 抽奖 / Lottery',
+                // bg_color / text_color 在 calendar_tags 是 NOT NULL 无默认，必须显式给值；金色呼应中奖高亮
+                'bg_color' => '#d4af37',
+                'text_color' => '#ffffff',
                 'quantifier' => 0,
                 'order' => 0,
             ]

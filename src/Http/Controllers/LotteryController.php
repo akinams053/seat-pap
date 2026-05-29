@@ -276,7 +276,12 @@ class LotteryController extends Controller
             // 7. 确保抽奖 operation 下该主角色的 Pap 行存在（首次 save，value=0；之后只 recompute，见 §11.5）
             Pap::firstOrCreate(
                 ['operation_id' => $operationId, 'character_id' => $mainCharId],
-                ['join_time' => $now->toDateTimeString(), 'created_at' => $now]
+                [
+                    // ship_type_id 在 paps 表是 NOT NULL 无默认；抽奖非真实舰队、无船型，占位 0（审查弹窗显示为 —）
+                    'ship_type_id' => 0,
+                    'join_time' => $now->toDateTimeString(),
+                    'created_at' => $now,
+                ]
             );
 
             // 8. 负数聚合扣费记录
