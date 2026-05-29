@@ -167,6 +167,11 @@ Route::group([
             'uses' => 'AuditController@adjust',
         ])->where('id', '[0-9]+');
 
+        Route::post('/{id}/audit/zero', [
+            'as' => 'operation.audit.zero',
+            'uses' => 'AuditController@zero',
+        ])->where('id', '[0-9]+');
+
     });
 
     // PAP 超网抽奖
@@ -194,6 +199,11 @@ Route::group([
         Route::get('/{lottery}', [
             'as' => 'lottery.show',
             'uses' => 'LotteryController@show',
+        ])->where('lottery', '[0-9]+');
+
+        Route::get('/{lottery}/snapshot', [
+            'as' => 'lottery.snapshot',
+            'uses' => 'LotteryController@snapshot',
         ])->where('lottery', '[0-9]+');
 
         Route::post('/{lottery}/purchase', [

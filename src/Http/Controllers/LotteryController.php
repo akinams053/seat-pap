@@ -31,7 +31,7 @@ class LotteryController extends Controller
 
     public function __construct()
     {
-        $this->middleware('can:calendar.view')->only(['index', 'show', 'purchase']);
+        $this->middleware('can:calendar.view')->only(['index', 'show', 'snapshot', 'purchase']);
         $this->middleware('can:calendar.create')->only(['create', 'store', 'draw', 'cancel']);
     }
 
@@ -186,6 +186,26 @@ class LotteryController extends Controller
             'my_owned' => $myOwned,
             'available_pap' => $this->availablePap($user),
             'can_manage' => $user->can('calendar.create'),
+            'snapshot' => $this->snapshotPayload($model, $user),
+        ]);
+    }
+
+    /**
+     * 轻量状态快照：供详情页 5 秒短轮询使用。
+     */
+    public function snapshot(int $lottery): JsonResponse
+    {
+        $model = Lottery::find($lottery);
+        if (is_null($model)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => trans('calendar::lottery.err_not_found'),
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'snapshot' => $this->snapshotPayload($model, auth()->user()),
         ]);
     }
 
@@ -567,6 +587,57 @@ class LotteryController extends Controller
             'status' => 'success',
             'message' => trans('calendar::lottery.cancel_success', ['count' => $result['refunded_nodes']]),
         ]);
+    }
+
+    /**
+     * 轻量状态快照：专供详情页短轮询判断是否需要整页刷新。
+     */
+    private function snapshotPayload(Lottery $lottery, User $user): array
+    {
+        $soldCount = LotteryNode::where('lottery_id', $lottery->id)
+            ->whereNotNull('purchased_at')
+            ->whereNull('refunded_at')
+            ->whereNull('voided_at')
+            ->count();
+
+        $myOwned = LotteryNode::where('lottery_id', $lottery->id)
+            ->where('user_id', $user->id)
+            ->whereNotNull('purchased_at')
+            ->whereNull('refunded_at')
+            ->whereNull('voided_at')
+            ->count();
+
+        $lastPurchasedAt = LotteryNode::where('lottery_id', $lottery->id)->max('purchased_at');
+        $lastRefundedAt = LotteryNode::where('lottery_id', $lottery->id)->max('refunded_at');
+        $lastVoidedAt = LotteryNode::where('lottery_id', $lottery->id)->max('voided_at');
+        $lastPrizeDrawnAt = LotteryPrize::where('lottery_id', $lottery->id)->max('drawn_at');
+        $availablePap = $this->availablePap($user);
+        $remainingCount = $lottery->node_count - $soldCount;
+
+        $version = sha1(implode('|', [
+            $lottery->status,
+            $soldCount,
+            $remainingCount,
+            $myOwned,
+            number_format($availablePap, 2, '.', ''),
+            optional($lottery->drawn_at)->toDateTimeString(),
+            $lottery->drawn_by_character_id,
+            $lastPurchasedAt,
+            $lastRefundedAt,
+            $lastVoidedAt,
+            $lastPrizeDrawnAt,
+        ]));
+
+        return [
+            'lottery_status' => $lottery->status,
+            'sold_count' => $soldCount,
+            'remaining_count' => $remainingCount,
+            'my_owned' => $myOwned,
+            'available_pap' => $availablePap,
+            'drawn_at' => optional($lottery->drawn_at)->toDateTimeString(),
+            'drawn_by_character_id' => $lottery->drawn_by_character_id,
+            'version' => $version,
+        ];
     }
 
     /**

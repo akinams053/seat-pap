@@ -340,5 +340,40 @@
             });
         });
         @endif
+
+        @if(in_array($lottery->status, ['open', 'sold_out']))
+        (function () {
+            var snapshotUrl = '{{ route('lottery.snapshot', ['lottery' => $lottery->id]) }}';
+            var currentSnapshotVersion = @json($snapshot['version']);
+            var pollInFlight = false;
+
+            setInterval(function () {
+                if (document.hidden || pollInFlight) {
+                    return;
+                }
+
+                pollInFlight = true;
+                $.ajax({
+                    url: snapshotUrl,
+                    method: 'GET',
+                    dataType: 'json',
+                    success: function (resp) {
+                        var snapshot = resp && resp.snapshot ? resp.snapshot : null;
+                        if (!snapshot) {
+                            return;
+                        }
+
+                        if (snapshot.version !== currentSnapshotVersion
+                            || ['drawn', 'cancelled'].indexOf(snapshot.lottery_status) !== -1) {
+                            window.location.reload();
+                        }
+                    },
+                    complete: function () {
+                        pollInFlight = false;
+                    }
+                });
+            }, 5000);
+        })();
+        @endif
     </script>
 @endpush

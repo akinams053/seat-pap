@@ -177,6 +177,84 @@ class AuditController extends Controller
     }
 
     /**
+     * 通过追加反向 adjustment，将本行动现有成员的最终 PAP 清零。
+     */
+    public function zero(int $operationId): JsonResponse
+    {
+        if (!auth()->user()->can('calendar.create'))
+            return response()->json(['status' => 'error', 'message' => 'Permission denied.'], 403);
+
+        $operation = Operation::with('lottery')->find($operationId);
+        if (is_null($operation))
+            return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
+
+        if (!$operation->isUserGranted(auth()->user()))
+            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
+
+        if (! is_null($operation->lottery) && in_array($operation->lottery->status, ['open', 'sold_out'], true))
+            return response()->json([
+                'status' => 'error',
+                'message' => trans('calendar::paps.audit_zero_active_lottery_forbidden'),
+            ], 422);
+
+        $operatorCharId = auth()->user()->main_character_id;
+        $reason = trans('calendar::paps.audit_zero_reason');
+
+        $result = DB::transaction(function () use ($operationId, $operatorCharId, $reason): array {
+            $paps = Pap::where('operation_id', $operationId)
+                ->lockForUpdate()
+                ->get(['character_id', 'value']);
+
+            $adjusted = 0;
+            $skipped = 0;
+
+            foreach ($paps as $pap) {
+                $currentValue = round((float) $pap->value, 2);
+                if (abs($currentValue) < 0.005) {
+                    $skipped++;
+                    continue;
+                }
+
+                PapAdjustment::create([
+                    'operation_id' => $operationId,
+                    'character_id' => $pap->character_id,
+                    'value' => -$currentValue,
+                    'reason' => $reason,
+                    'created_by_character_id' => $operatorCharId,
+                    'created_at' => carbon(),
+                ]);
+
+                Pap::recomputeValueFor($operationId, (int) $pap->character_id);
+                $adjusted++;
+            }
+
+            return [
+                'adjusted' => $adjusted,
+                'skipped' => $skipped,
+            ];
+        });
+
+        if ($result['adjusted'] === 0) {
+            return response()->json([
+                'status' => 'success',
+                'adjusted_count' => 0,
+                'skipped_count' => $result['skipped'],
+                'message' => trans('calendar::paps.audit_zero_no_changes'),
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'adjusted_count' => $result['adjusted'],
+            'skipped_count' => $result['skipped'],
+            'message' => trans('calendar::paps.audit_zero_success', [
+                'adjusted' => $result['adjusted'],
+                'skipped' => $result['skipped'],
+            ]),
+        ]);
+    }
+
+    /**
      * 写入奖惩记录并回写 paps.value
      * 权限：calendar.create + 行动可见性
      */

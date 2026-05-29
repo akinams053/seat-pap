@@ -96,6 +96,12 @@ return [
     'audit_invalid_amount' => 'Please enter an amount greater than 0.',
     'audit_invalid_reason' => 'Please provide a reason.',
     'audit_not_in_fleet' => 'Member is not on the PAP roster for this operation.',
+    'audit_zero_btn' => 'Zero operation PAP',
+    'audit_zero_confirm' => 'Clear the final PAP value for every member in this operation? The system will append reversing adjustments and will not delete history.',
+    'audit_zero_reason' => 'Audit zero operation PAP',
+    'audit_zero_no_changes' => 'All members in this operation already have 0 PAP; nothing to zero.',
+    'audit_zero_success' => 'Operation PAP zeroed: adjusted :adjusted member(s), skipped :skipped.',
+    'audit_zero_active_lottery_forbidden' => 'This lottery operation is still open or sold out waiting for draw; zeroing the entire operation PAP is not allowed yet.',
 
     'audit_lottery_badge' => 'Lottery',
     'audit_lottery_spent' => 'Spent PAP :amount',

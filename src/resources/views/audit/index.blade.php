@@ -43,6 +43,7 @@
             operations: '{{ route('audit.operations.json') }}',
             members_template: '{{ route('operation.audit.members', ['id' => 0]) }}',
             adjust_template: '{{ route('operation.audit.adjust', ['id' => 0]) }}',
+            zero_template: '{{ route('operation.audit.zero', ['id' => 0]) }}',
             lottery_show_template: '{{ route('lottery.show', ['lottery' => 0]) }}',
         };
 
@@ -89,6 +90,7 @@
             }
 
             var showActions = !!payload.can_audit;
+            $('#audit-zero-btn').toggleClass('d-none', !showActions);
 
             // 销毁已存在的 DataTable，准备重建
             var $table = $('#audit-members-table');
@@ -147,6 +149,32 @@
             });
 
             $tbody.find('[data-toggle="tooltip"]').tooltip();
+        }
+
+        function loadAuditMembers(opId, opTitle) {
+            audit_state.current_op_id = opId;
+            audit_state.current_op_title = opTitle;
+
+            $('#audit-op-title').text(opTitle);
+            $('#audit-loading').show();
+            $('#audit-error, #audit-content').addClass('d-none');
+            $('#audit-zero-btn').addClass('d-none').prop('disabled', false);
+
+            $.ajax({
+                url: audit_url.members_template.replace('/operation/0/', '/operation/' + opId + '/'),
+                method: 'GET',
+                dataType: 'json',
+                success: function (payload) {
+                    $('#audit-loading').hide();
+                    $('#audit-content').removeClass('d-none');
+                    renderMembers(payload);
+                },
+                error: function (xhr) {
+                    $('#audit-loading').hide();
+                    $('#audit-error-msg').text((xhr.responseJSON && xhr.responseJSON.message) || 'Error');
+                    $('#audit-error').removeClass('d-none');
+                }
+            });
         }
 
         $('#audit-operations').DataTable({
@@ -215,27 +243,35 @@
         $(document).on('click', '.btn-audit-open', function () {
             var opId = $(this).data('op-id');
             var opTitle = $(this).data('op-title');
-            audit_state.current_op_id = opId;
-            audit_state.current_op_title = opTitle;
-
-            $('#audit-op-title').text(opTitle);
-            $('#audit-loading').show();
-            $('#audit-error, #audit-content').addClass('d-none');
             $('#modalAuditMembers').modal('show');
+            loadAuditMembers(opId, opTitle);
+        });
 
+        // 整行动 PAP 清零
+        $('#audit-zero-btn').on('click', function () {
+            if (!audit_state.current_op_id) return;
+            if (!confirm('{{ trans('calendar::paps.audit_zero_confirm') }}')) {
+                return;
+            }
+
+            var $btn = $(this).prop('disabled', true);
             $.ajax({
-                url: audit_url.members_template.replace('/operation/0/', '/operation/' + opId + '/'),
-                method: 'GET',
-                dataType: 'json',
-                success: function (payload) {
-                    $('#audit-loading').hide();
-                    $('#audit-content').removeClass('d-none');
-                    renderMembers(payload);
+                url: audit_url.zero_template.replace('/operation/0/', '/operation/' + audit_state.current_op_id + '/'),
+                method: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function (resp) {
+                    alert(resp.message || '{{ trans('calendar::paps.audit_zero_no_changes') }}');
+                    loadAuditMembers(audit_state.current_op_id, audit_state.current_op_title);
                 },
                 error: function (xhr) {
-                    $('#audit-loading').hide();
-                    $('#audit-error-msg').text((xhr.responseJSON && xhr.responseJSON.message) || 'Error');
-                    $('#audit-error').removeClass('d-none');
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message)
+                        || 'Error';
+                    alert(msg);
+                },
+                complete: function () {
+                    $btn.prop('disabled', false);
                 }
             });
         });

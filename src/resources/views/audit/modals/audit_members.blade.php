@@ -68,6 +68,9 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-warning d-none" id="audit-zero-btn">
+                    <i class="fas fa-undo"></i> {{ trans('calendar::paps.audit_zero_btn') }}
+                </button>
                 <button type="button" class="btn btn-default" data-dismiss="modal">{{ trans('calendar::seat.close') }}</button>
             </div>
         </div>

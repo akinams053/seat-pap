@@ -96,6 +96,12 @@ return [
     'audit_invalid_amount' => '请输入大于 0 的数量。',
     'audit_invalid_reason' => '请填写奖惩理由。',
     'audit_not_in_fleet' => '该成员未在本次行动的 PAP 名单中，无法奖惩。',
+    'audit_zero_btn' => '整行动 PAP 清零',
+    'audit_zero_confirm' => '确认将本行动所有成员的最终 PAP 清零吗？系统会通过追加反向奖惩记录冲正，不会删除历史记录。',
+    'audit_zero_reason' => '审查整行动清零',
+    'audit_zero_no_changes' => '当前行动所有成员的 PAP 已经为 0，无需清零。',
+    'audit_zero_success' => '已清零本行动的 PAP：处理 :adjusted 人，跳过 :skipped 人。',
+    'audit_zero_active_lottery_forbidden' => '该抽奖行动仍在进行中或已售罄待开奖，暂不允许整行动 PAP 清零。',
 
     'audit_lottery_badge' => '抽奖',
     'audit_lottery_spent' => '消费 PAP :amount',
