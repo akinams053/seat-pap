@@ -6,6 +6,37 @@
 
 > 约定：标注「**宿主命令**」的在 SeAT 根目录执行；标注「**SQL**」的在宿主数据库执行（`mysql` 或任意客户端）。下文 SQL 里的 `:lottery_id` / `:op_id` 等请替换为实际值。
 
+## 当前交接进度（2026-05）
+
+- **代码已推到分支**：`docs/pap-hypernet-lottery-plan`
+- **测试服已确认部署版本**：`b04dfbe`（含「提前开奖」功能）
+- **已实测通过**：
+  - 阶段 1 结构类检查（字段精度 / enum / 三张抽奖表 / 索引）
+  - 抽奖创建阻塞性 bug 修复：保留 tag 补 `bg_color` / `text_color`
+  - 购买前阻塞性 bug 修复：抽奖 PAP 首次创建补 `ship_type_id = 0`
+- **待继续实测**：
+  - 阶段 2 创建后页面/落库完整核对
+  - 阶段 3 购买节点与负数扣费
+  - 阶段 4 售满开奖
+  - 阶段 4.4 提前开奖（`draw_mode = early`、未售节点 `voided_at`）
+  - 阶段 5 取消退款
+  - 阶段 6 行动审查友好化
+
+## 测试服连接约定
+
+- Web 入口：`http://ylxh.de`
+- 如需从当前工作区旁路 SSH 到测试服，复用兄弟仓库 `seat-fitting` 的辅助脚本：
+
+**本机命令**
+```bash
+cd ../seat-fitting
+bash scripts/ssh-seat -t test 'your command here'
+```
+
+说明：
+- 凭据文件在 `../seat-fitting/.creds.test`，私钥路径也在该文件第 4 行配置；**不要**把实际 IP、账号、私钥内容再写进本仓库文档。
+- 在宿主上跑 `php artisan` 时，优先使用 `sudo -u www-data php artisan ...`，避免 root 直跑造成权限问题。
+
 ---
 
 ## 0. 前置：把抽奖分支部署到宿主
@@ -232,7 +263,37 @@ SELECT draw_log FROM kassie_calendar_lotteries WHERE id = :lottery_id;
 
 ### 4.3 幂等
 
-对已 `drawn` 的抽奖再次 POST `draw`（或刷新后按钮应已消失）应被拒绝（「只有售罄的抽奖才能开奖」）。
+对已 `drawn` 的抽奖再次 POST `draw`（或刷新后按钮应已消失）应被拒绝（「只有进行中或已售罄的抽奖才能开奖」）。
+
+### 4.4 提前开奖（凑不满人时，2026-05 新增）
+
+> `open` 状态下凑不满人，FC / 管理员可在已有至少 1 个已售节点的前提下手动「提前开奖」。
+
+1. 另建一期（重复 2.2，建议：节点数 `3`、单价 `1`、每人上限 `3`、2 个奖品、勾选「允许重复中奖」）。
+2. 用成员账号只买 **2** 个节点（**留 1 个不卖**），保持 `open`。
+3. 详情页管理栏应出现黄色 **提前开奖** 按钮（仅 `open` 且 `sold_count > 0` 时显示；一个都没卖时不显示）。
+4. 点「提前开奖」，确认框会提示「未售节点将作废」，确认。
+
+**SQL**
+```sql
+SELECT status, JSON_EXTRACT(draw_log, '$.draw_mode') AS draw_mode
+FROM kassie_calendar_lotteries WHERE id = :lottery_id3;
+-- status = drawn，draw_mode = "early"
+
+-- 未售出的那个节点应被作废
+SELECT node_number, purchased_at, voided_at
+FROM kassie_calendar_lottery_nodes WHERE lottery_id = :lottery_id3 ORDER BY node_number;
+-- 已购 2 个：purchased_at 非空、voided_at 空；未售 1 个：voided_at 非空
+
+SELECT sort_order, name, winner_node_number, winner_character_id
+FROM kassie_calendar_lottery_prizes WHERE lottery_id = :lottery_id3 ORDER BY sort_order;
+-- 中奖节点只会落在已售的 2 个节点上，绝不会是被作废的未售节点
+```
+
+要点：
+- `draw_mode = early`；未售节点 `voided_at` 被填，且**不出现在任何奖品的中奖节点里**。
+- 一个节点都没售出时尝试提前开奖应被拒绝（「还没有任何节点售出，无法开奖」）。
+- `paps.value` 不因开奖改变（开奖只动节点 / 奖品 / 状态）。
 
 ---
 
