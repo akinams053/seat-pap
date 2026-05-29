@@ -83,6 +83,16 @@ class Operation extends Model
     }
 
     /**
+     * 抽奖行动绑定的抽奖记录（普通行动为 null）
+     *
+     * @return HasOne
+     */
+    public function lottery(): HasOne
+    {
+        return $this->hasOne(Lottery::class, 'operation_id', 'id');
+    }
+
+    /**
      * @return bool
      */
     public function getIsFleetCommanderAttribute(): bool
