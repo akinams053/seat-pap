@@ -19,9 +19,9 @@ use Seat\Web\Http\Controllers\Controller;
 use Seat\Web\Models\User;
 
 /**
- * PAP 超网抽奖控制器（阶段 2：创建与展示；阶段 3：购买与扣费）
+ * PAP 超网抽奖控制器（阶段 2：创建与展示；阶段 3：购买与扣费；阶段 4：手动开奖）
  *
- * 开奖 / 取消退款分别在阶段 4 / 5 补充。
+ * 取消退款在阶段 5 补充。
  */
 class LotteryController extends Controller
 {
@@ -33,7 +33,7 @@ class LotteryController extends Controller
     public function __construct()
     {
         $this->middleware('can:calendar.view')->only(['index', 'show', 'purchase']);
-        $this->middleware('can:calendar.create')->only(['create', 'store']);
+        $this->middleware('can:calendar.create')->only(['create', 'store', 'draw']);
     }
 
     /**
@@ -159,7 +159,12 @@ class LotteryController extends Controller
             abort(404);
         }
 
-        $charIds = $model->nodes->pluck('character_id')->filter()->unique();
+        // 节点归属 + 中奖者 + 开奖人，统一解析角色名
+        $charIds = $model->nodes->pluck('character_id')
+            ->merge($model->prizes->pluck('winner_character_id'))
+            ->push($model->drawn_by_character_id)
+            ->filter()
+            ->unique();
         $charNames = CharacterInfo::whereIn('character_id', $charIds)->pluck('name', 'character_id');
 
         $soldCount = $model->nodes
@@ -349,6 +354,120 @@ class LotteryController extends Controller
                 'count' => count($result['chosen']),
                 'spent' => number_format($result['spent'], 2),
             ]),
+        ]);
+    }
+
+    /**
+     * 售完后手动开奖（阶段 4，见计划 §2.4 / §1.7 / §6.5）
+     *
+     * 仅 sold_out 可开奖；事务内锁主行重确认状态，多奖按顺序抽，
+     * 单个中奖节点移出后续池；不允许重复时该用户全部节点移出。
+     */
+    public function draw(int $lottery): JsonResponse
+    {
+        $drawnByCharId = auth()->user()->main_character_id;
+
+        $result = DB::transaction(function () use ($lottery, $drawnByCharId): array {
+            // 锁主行并重确认状态（幂等：已 drawn 不可再开，见 §6.3）
+            $model = Lottery::lockForUpdate()->find($lottery);
+            if (is_null($model)) {
+                return ['error' => trans('calendar::lottery.err_not_found'), 'code' => 404];
+            }
+            if ($model->status !== 'sold_out') {
+                return ['error' => trans('calendar::lottery.err_not_sold_out')];
+            }
+
+            // 有效节点池（已购、未退、未作废）
+            $nodes = LotteryNode::where('lottery_id', $model->id)
+                ->whereNotNull('purchased_at')
+                ->whereNull('refunded_at')
+                ->whereNull('voided_at')
+                ->get(['id', 'node_number', 'user_id', 'character_id']);
+
+            $prizes = LotteryPrize::where('lottery_id', $model->id)
+                ->orderBy('sort_order')
+                ->get();
+
+            $allowRepeat = (bool) $model->allow_repeat_winners;
+            $usedNodeIds = [];        // 已中奖的节点（任何模式下都不再参与）
+            $excludedUserIds = [];    // 不允许重复时，已中奖用户的全部节点排除
+            $rounds = [];
+            $now = carbon();
+
+            foreach ($prizes as $prize) {
+                $candidates = $nodes->filter(function ($n) use ($usedNodeIds, $allowRepeat, $excludedUserIds) {
+                    if (in_array($n->id, $usedNodeIds, true)) {
+                        return false;
+                    }
+                    if (! $allowRepeat && in_array($n->user_id, $excludedUserIds, true)) {
+                        return false;
+                    }
+
+                    return true;
+                })->values();
+
+                // 候选为空（如不允许重复时奖品数多于中奖人数）：该奖品留空
+                if ($candidates->isEmpty()) {
+                    $rounds[] = [
+                        'prize_id' => $prize->id,
+                        'prize_name' => $prize->name,
+                        'candidate_node_count' => 0,
+                        'roll_index' => null,
+                        'winner_node_number' => null,
+                        'winner_user_id' => null,
+                        'winner_character_id' => null,
+                    ];
+                    continue;
+                }
+
+                $rollIndex = random_int(0, $candidates->count() - 1);
+                $winner = $candidates[$rollIndex];
+
+                $prize->winner_node_number = (int) $winner->node_number;
+                $prize->winner_user_id = $winner->user_id;
+                $prize->winner_character_id = $winner->character_id;
+                $prize->drawn_at = $now;
+                $prize->save();
+
+                $usedNodeIds[] = $winner->id;
+                if (! $allowRepeat) {
+                    $excludedUserIds[] = $winner->user_id;
+                }
+
+                $rounds[] = [
+                    'prize_id' => $prize->id,
+                    'prize_name' => $prize->name,
+                    'candidate_node_count' => $candidates->count(),
+                    'roll_index' => $rollIndex,
+                    'winner_node_number' => (int) $winner->node_number,
+                    'winner_user_id' => $winner->user_id,
+                    'winner_character_id' => $winner->character_id,
+                ];
+            }
+
+            $model->status = 'drawn';
+            $model->drawn_by_character_id = $drawnByCharId;
+            $model->drawn_at = $now;
+            $model->draw_log = [
+                'draw_mode' => 'sold_out',
+                'allow_repeat_winners' => $allowRepeat,
+                'rounds' => $rounds,
+            ];
+            $model->save();
+
+            return ['ok' => true];
+        });
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $result['error'],
+            ], $result['code'] ?? 422);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => trans('calendar::lottery.draw_success'),
         ]);
     }
 

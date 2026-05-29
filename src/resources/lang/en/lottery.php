@@ -86,4 +86,12 @@ return [
     'err_exceed_limit' => 'Exceeds per-user limit (limit :limit, you own :owned).',
     'err_insufficient_pap' => 'Not enough available PAP: have :available, need :need. Please refresh and retry.',
 
+    // draw
+    'manage_title' => 'Management',
+    'draw_btn' => 'Draw',
+    'draw_confirm' => 'Confirm draw? Results cannot be changed.',
+    'draw_success' => 'Draw completed.',
+    'drawn_info' => 'Drawn by :by · at :at',
+    'err_not_sold_out' => 'Only a fully sold-out lottery can be drawn.',
+
 ];

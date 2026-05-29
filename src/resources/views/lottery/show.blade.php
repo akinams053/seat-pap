@@ -22,6 +22,27 @@
         }
     @endphp
 
+    {{-- 管理操作（FC / 管理员） --}}
+    @if($can_manage && $lottery->status === 'sold_out')
+        <div class="card">
+            <div class="card-body">
+                <strong class="mr-2">{{ trans('calendar::lottery.manage_title') }}：</strong>
+                <button type="button" class="btn btn-warning" id="draw-btn">
+                    <i class="fas fa-dice"></i> {{ trans('calendar::lottery.draw_btn') }}
+                </button>
+            </div>
+        </div>
+    @endif
+
+    @if($lottery->status === 'drawn' && $lottery->drawn_at)
+        <div class="alert alert-info">
+            {{ trans('calendar::lottery.drawn_info', [
+                'by' => $char_names->get($lottery->drawn_by_character_id, '#' . $lottery->drawn_by_character_id),
+                'at' => optional($lottery->drawn_at)->toDateTimeString(),
+            ]) }}
+        </div>
+    @endif
+
     <div class="row">
         {{-- 左侧：概览 + 奖品 --}}
         <div class="col-md-4">
@@ -260,6 +281,28 @@
                 });
             });
         })();
+        @endif
+
+        @if($can_manage && $lottery->status === 'sold_out')
+        $('#draw-btn').on('click', function () {
+            if (!confirm('{{ trans('calendar::lottery.draw_confirm') }}')) {
+                return;
+            }
+            var $btn = $(this).prop('disabled', true);
+            $.ajax({
+                url: '{{ route('lottery.draw', ['lottery' => $lottery->id]) }}',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function () {
+                    window.location.reload();
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Error';
+                    alert(msg);
+                    $btn.prop('disabled', false);
+                }
+            });
+        });
         @endif
     </script>
 @endpush

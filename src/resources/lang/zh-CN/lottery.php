@@ -86,4 +86,12 @@ return [
     'err_exceed_limit' => '超过每人上限（上限 :limit，你已购 :owned）。',
     'err_insufficient_pap' => '可用 PAP 不足：当前 :available，需要 :need。请刷新后重试。',
 
+    // 开奖
+    'manage_title' => '管理操作',
+    'draw_btn' => '开奖',
+    'draw_confirm' => '确认开奖？开奖结果不可更改。',
+    'draw_success' => '开奖完成。',
+    'drawn_info' => '开奖人 :by · 开奖时间 :at',
+    'err_not_sold_out' => '只有节点全部售罄的抽奖才能开奖。',
+
 ];

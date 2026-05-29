@@ -201,6 +201,12 @@ Route::group([
             'uses' => 'LotteryController@purchase',
         ])->where('lottery', '[0-9]+');
 
+        Route::post('/{lottery}/draw', [
+            'as' => 'lottery.draw',
+            'uses' => 'LotteryController@draw',
+            'middleware' => 'can:calendar.create',
+        ])->where('lottery', '[0-9]+');
+
     });
 
     // 行动审查
