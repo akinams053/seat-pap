@@ -13,7 +13,9 @@
   - 结构类验证已在测试服实跑通过。
   - 两个阻塞性建表/写库 bug 已修复并推送。
   - 额外新增了「提前开奖」能力（凑不满人时可手动开）。
-  - 购买 / 售满开奖 / 提前开奖 / 退款 / 审查 UI 仍需继续按验证清单逐条实测。
+  - 已新增 **审查页整行动 PAP 清零** 与 **抽奖详情 5 秒短轮询**。
+  - 已在测试服完成一轮 **30 角色并发购买模拟**，结果正确且测试数据已清理。
+  - 售满开奖 / 提前开奖 / 取消退款 / 审查 UI 仍建议继续按验证清单逐条实测。
 
 ---
 
@@ -32,6 +34,12 @@
   - `draw_log.draw_mode = early`
   - 详情页增加「提前开奖」按钮与独立确认文案
   - 计划文档 / 验证清单已同步更新
+- `871b17c` — `feat: 增加审查清零与抽奖短轮询`
+  - `/calendar/audit` 成员明细弹窗新增「整行动 PAP 清零」按钮
+  - 通过追加反向 `PapAdjustment` 把当前 action 的最终 PAP 冲正为 0，不删除历史记录
+  - 未终态 lottery action（`open` / `sold_out`）禁止执行整行动清零
+  - 抽奖详情页新增 `lottery.snapshot` 轻量接口与 5 秒短轮询
+  - 页面在 `open` / `sold_out` 状态下会自动检测变化并整页刷新；后台标签页会跳过本轮请求
 
 ---
 
@@ -50,7 +58,7 @@
 测试服上已确认 `seat-pap` 版本为：
 
 - `docs/pap-hypernet-lottery-plan`
-- commit：`b04dfbe`
+- commit：`871b17c`
 
 ### 3.3 已实跑通过的验证项
 
@@ -69,7 +77,19 @@
   - `lotteries.created_by_character_id` index
   - `lottery_nodes(lottery_id, node_number)` unique
 
-### 3.4 已确认修复生效的 bug
+### 3.4 已新增并已部署的行为
+
+- 审查页成员明细弹窗已可执行 **整行动 PAP 清零**：
+  - 入口在 `/calendar/audit`
+  - 通过追加反向 `PapAdjustment` 清零，不删除历史 adjustments
+  - 未终态 lottery action 会被后端拒绝
+- 抽奖详情页已启用 **5 秒短轮询**：
+  - 轮询接口：`calendar/lotteries/{lottery}/snapshot`
+  - 在 `open` / `sold_out` 时自动检查变化
+  - 发现进度、状态或本人持有节点变化时整页刷新
+  - 页面位于后台标签页时跳过本轮请求
+
+### 3.5 已确认修复生效的 bug
 
 #### bug 1：创建抽奖时报错 `bg_color doesn't have a default value`
 
@@ -119,7 +139,15 @@
 - `draw_log.draw_mode = early`
 - 若奖品数 > 已购人数且不允许重复中奖，多出的奖品可能无人中奖（winner 为 `NULL`）
 
-### 4.3 当前仍未做的事
+### 4.3 审查整行动清零的语义
+
+- 目标：把当前 action 下**现有成员的最终 PAP 值**冲正为 0
+- 实现方式：对每个 `paps.value != 0` 的成员追加一条反向 `PapAdjustment`
+- 不删除既有历史流水；清零后仍能在审查弹窗的 history 里看见原始记录和清零记录
+- 已是 0 的成员会跳过
+- 若 action 关联 lottery 且状态仍是 `open` / `sold_out`，后端会拒绝执行
+
+### 4.4 当前仍未做的事
 
 - 军团 PAP 统计 / 导出语义调整（阶段 7，仍延后）
 - 自动开奖
@@ -176,7 +204,7 @@ sudo systemctl reload php8.4-fpm   # 若服务名不同，按宿主实际情况�
 - **migration**：额外跑 `php artisan migrate`
 - **静态资源**：额外跑 `vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"`
 
-本次 `b04dfbe` 提前开奖改动只涉及 PHP / Blade / lang，**不需要**新增 migration，也**不需要** publish assets。
+本次 `871b17c` 审查清零 + 短轮询改动只涉及 PHP / Blade / lang，**不需要**新增 migration，也**不需要** publish assets。
 
 ---
 
@@ -189,12 +217,14 @@ sudo systemctl reload php8.4-fpm   # 若服务名不同，按宿主实际情况�
    - 创建一条小抽奖
    - 买 1～2 个节点
    - 核对 `pap_adjustments` / `paps.value` / `lottery_nodes`
-3. 再测 **阶段 4**：
+3. 再测 **阶段 3.5 / 4**：
+   - 30 角色并发购买（已验证通过，可按需复现）
    - 售满开奖（`draw_mode = sold_out`）
    - 提前开奖（`draw_mode = early`、未售节点 `voided_at`）
 4. 然后测 **阶段 5 / 6**：
    - 取消并退款
    - 审查页徽标 / 单 PAP 展示 / 跳转链接 / adjustments 流水
+   - 整行动 PAP 清零（普通 action 可清零；未终态 lottery action 应被拒绝）
 5. 若测试中出现 SQL / 状态不一致，优先回收：
    - `lotteries`
    - `lottery_nodes`
@@ -231,6 +261,29 @@ sudo systemctl reload php8.4-fpm   # 若服务名不同，按宿主实际情况�
 - 买 1～2 个后不开奖
 - 点「取消并退款」
 - 应 `status = cancelled`，并新增正数退款调整，`paps.value` 净额回到 0
+
+### 用例 D：整行动 PAP 清零
+
+- 选一个普通 action，确保至少 2 人且 `paps.value` 有非 0 值
+- 在 `/calendar/audit` 打开成员明细
+- 点「整行动 PAP 清零」
+- 应为每个非 0 成员追加一条反向 adjustment，并使该 action 下 `paps.value` 归零
+- 对未终态 lottery action 执行时应被拒绝
+
+### 用例 E：30 角色并发购买模拟
+
+- 抽奖标题：`并发测试`
+- 节点数：`31`
+- 单价：`1.00`
+- 每人上限：`1`
+- 临时创建 30 个测试角色并并发各买 1 个节点
+- 预期：
+  - 30/30 成功
+  - `sold_count = 30`
+  - 没有重复节点分配
+  - `pap_adjustments` 共 30 条、总和 `-30.00`
+  - `kassie_calendar_paps` 在该抽奖 operation 下共 30 行、总和 `-30.00`
+  - 清理测试数据后，抽奖恢复为 `open` 且 `sold_count = 0`
 
 ---
 

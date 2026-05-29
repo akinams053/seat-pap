@@ -9,18 +9,20 @@
 ## 当前交接进度（2026-05）
 
 - **代码已推到分支**：`docs/pap-hypernet-lottery-plan`
-- **测试服已确认部署版本**：`b04dfbe`（含「提前开奖」功能）
+- **测试服已确认部署版本**：`871b17c`（含「整行动 PAP 清零」与「5 秒短轮询」）
 - **已实测通过**：
   - 阶段 1 结构类检查（字段精度 / enum / 三张抽奖表 / 索引）
   - 抽奖创建阻塞性 bug 修复：保留 tag 补 `bg_color` / `text_color`
   - 购买前阻塞性 bug 修复：抽奖 PAP 首次创建补 `ship_type_id = 0`
+  - 新路由已在宿主注册：`lottery.snapshot`、`operation.audit.zero`
+  - 阶段 3.5：30 角色并发购买模拟（30/30 成功、无重复节点、账务一致、测试数据已清理）
 - **待继续实测**：
   - 阶段 2 创建后页面/落库完整核对
   - 阶段 3 购买节点与负数扣费
   - 阶段 4 售满开奖
   - 阶段 4.4 提前开奖（`draw_mode = early`、未售节点 `voided_at`）
   - 阶段 5 取消退款
-  - 阶段 6 行动审查友好化
+  - 阶段 6 行动审查友好化 + 整行动 PAP 清零
 
 ## 测试服连接约定
 
@@ -56,18 +58,20 @@ php artisan vendor:publish --tag=calendar --force   # 若该 tag 不适用，按
 
 **宿主命令**
 ```bash
-php artisan route:list | egrep 'lotteries'
+php artisan route:list | egrep 'lotteries|audit/zero'
 ```
 
-应能看到 7 条：
+应至少能看到以下 9 条核心路由：
 ```
 GET   calendar/lotteries
 GET   calendar/lotteries/create
 POST  calendar/lotteries
 GET   calendar/lotteries/{lottery}
+GET   calendar/lotteries/{lottery}/snapshot
 POST  calendar/lotteries/{lottery}/purchase
 POST  calendar/lotteries/{lottery}/draw
 POST  calendar/lotteries/{lottery}/cancel
+POST  calendar/operation/{id}/audit/zero
 ```
 
 ---
@@ -223,6 +227,59 @@ WHERE lottery_id = :lottery_id AND user_id IS NOT NULL;
 - 数量超过剩余 → 应报「剩余节点不足」。
 - 余额不足（换个零 PAP 账号）→ 应报「可用 PAP 不足」。
 
+### 3.5 并发购买与 5 秒短轮询（2026-05）
+
+> 如缺少足够的真实测试号，可临时造一批带唯一前缀的测试用户/角色/PAP 数据，跑完后按清单清理。建议**只做购买并发，不开奖**，避免清理复杂化。
+
+已完成过一轮实测场景：
+
+- 抽奖标题：`并发测试`
+- 节点数：`31`
+- 单价：`1.00`
+- 每人上限：`1`
+- 临时创建 30 个测试角色，并发各购买 1 个节点
+
+已验证结果：
+
+- 30/30 购买成功
+- `sold_count = 30`
+- 没有重复节点分配
+- `pap_adjustments` 共 30 条、总和 `-30.00`
+- `kassie_calendar_paps` 在该抽奖 operation 下共 30 行、总和 `-30.00`
+- 清理测试数据后，抽奖恢复为 `open` 且 `sold_count = 0`
+
+可用于复核的核心 SQL：
+
+```sql
+-- 当前已售节点数
+SELECT COUNT(*)
+FROM kassie_calendar_lottery_nodes
+WHERE lottery_id = :lottery_id
+  AND purchased_at IS NOT NULL
+  AND refunded_at IS NULL
+  AND voided_at IS NULL;
+
+-- 节点唯一性（并发购买后应等于 sold_count）
+SELECT COUNT(DISTINCT node_number)
+FROM kassie_calendar_lottery_nodes
+WHERE lottery_id = :lottery_id
+  AND purchased_at IS NOT NULL
+  AND refunded_at IS NULL
+  AND voided_at IS NULL;
+
+-- 并发参与者在该抽奖 operation 下的调整汇总
+SELECT COUNT(*) AS adjustment_count, COALESCE(SUM(value), 0) AS adjustment_sum
+FROM kassie_calendar_pap_adjustments
+WHERE operation_id = :op_id
+  AND character_id IN (/* 本轮并发测试角色 character_id 列表 */);
+
+-- 并发参与者在该抽奖 operation 下的最终 PAP 汇总
+SELECT COUNT(*) AS pap_rows, COALESCE(SUM(value), 0) AS pap_sum
+FROM kassie_calendar_paps
+WHERE operation_id = :op_id
+  AND character_id IN (/* 本轮并发测试角色 character_id 列表 */);
+```
+
 ---
 
 ## 4. 阶段 4：售完后手动开奖
@@ -343,6 +400,36 @@ WHERE lottery_id = :lottery_id2 AND refunded_at IS NOT NULL;
 - 「总额」列在为负时显示 **消费 PAP xxx**（已开奖 / 进行中且有净消费时）。
 - 点开成员明细弹窗，标题栏应有 **查看抽奖详情** 链接（新标签打开对应抽奖页）。
 - 弹窗内每个成员的流水（adjustments）应能看到购买扣费（「购买抽奖节点 N 个：#...」）和退款记录。
+- 管理员在成员明细弹窗底部应看到 **整行动 PAP 清零** 按钮。
+
+### 6.1 整行动 PAP 清零
+
+> 先用一个**普通 action** 验证成功路径，再用一个**未终态 lottery action** 验证拒绝路径。
+
+1. 选一个普通 action，确保至少有 2 个成员且 `paps.value` 存在非 0 值。
+2. 打开成员明细弹窗，点击 **整行动 PAP 清零**。
+3. 确认框会提示：通过追加反向奖惩记录冲正，不删除历史记录。
+
+**SQL**
+```sql
+-- 清零后所有成员的最终 PAP 应归零
+SELECT character_id, value
+FROM kassie_calendar_paps
+WHERE operation_id = :op_id3
+ORDER BY character_id;
+
+-- 应能看到每个非 0 成员新增一条反向 adjustment
+SELECT character_id, value, reason, created_by_character_id, created_at
+FROM kassie_calendar_pap_adjustments
+WHERE operation_id = :op_id3
+ORDER BY id DESC;
+```
+
+要点：
+- 每个原本 `paps.value != 0` 的成员都应新增一条反向 adjustment。
+- 已是 0 的成员应被跳过，不新增记录。
+- 再次执行一次整行动清零，应提示“无需清零”或等价成功提示，不再新增 adjustment。
+- 对**未终态 lottery action**（`open` / `sold_out`）执行时，应被拒绝，并提示暂不允许清零。
 
 > 已全额退款的抽奖净额为 0，「总额」会显示 0.00（非「消费 PAP」），属预期。
 
