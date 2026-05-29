@@ -148,13 +148,42 @@ PAP 余额要随抽奖消费减少，但统计页面后续应尽量区分三类�
 6. 系统创建 lottery 主记录与 prize / node 记录。
 7. 抽奖进入 `open` 状态。
 
-特殊 operation 建议：
+特殊 operation 要求：
 
 - 标题前缀：`【抽奖】`。
-- 基础 PAP 必须为 `0`。
-- 可以绑定一个专用 tag，例如 `Lottery` / `抽奖`，其 `quantifier = 0`。
+- 必须自动绑定系统保留的抽奖专用 tag。
+- 抽奖专用 tag 的 `quantifier` 必须固定为 `0`。
+- 抽奖专用 tag 的 `analytics` 建议固定为 `lottery`。
+- FC 创建抽奖时不手动选择普通 PAP tag，避免选错导致基础 PAP 不为 0。
 
-### 2.2 成员购买节点
+### 2.2 抽奖专用 Tag
+
+抽奖行动必须打上专用抽奖 tag。这个 tag 不只是 UI 标记，也是保证扣费和统计语义正确的重要约束。
+
+建议专用 tag：
+
+```text
+name = PAP 抽奖 / Lottery
+quantifier = 0
+analytics = lottery
+```
+
+设计规则：
+
+- 创建抽奖时由系统自动创建 / 查找并绑定该 tag。
+- FC 不需要、也不应该手动选择普通 PAP tag。
+- 该 tag 是系统保留 tag，不允许在普通 tag 管理中删除。
+- 不允许把该 tag 的 `quantifier` 改成非 0。
+- 行动审查和 operation 列表可以通过该 tag 辅助显示“抽奖行动”。
+
+统计识别建议：
+
+- **主识别**：以 `kassie_calendar_lotteries.operation_id` 判断是否抽奖 operation。
+- **辅助识别**：抽奖专用 tag 用于 UI 展示、人工排查和筛选。
+
+这样即使 tag 被异常修改，统计仍可以通过 lottery 表关联保持正确；同时 UI 上也能直观看到该 operation 是抽奖行动。
+
+### 2.3 成员购买节点
 
 1. 成员进入抽奖详情页。
 2. 页面显示：
@@ -165,7 +194,7 @@ PAP 余额要随抽奖消费减少，但统计页面后续应尽量区分三类�
    - 单节点价格；
    - 每人上限；
    - 自己已购买节点；
-   - 自己可用 PAP。
+   - 当前个人可用 PAP（固定起始日以来，已扣除抽奖消费）。
 3. 成员选择购买数量。
 4. 系统校验：
    - 抽奖状态为 `open`；
@@ -184,7 +213,7 @@ reason = 购买抽奖节点 N 个：#01, #08, #33
 8. 系统调用 `Pap::recomputeValueFor()` 回写 `kassie_calendar_paps.value`。
 9. 页面刷新节点状态和余额。
 
-### 2.3 售完后手动开奖
+### 2.4 售完后手动开奖
 
 1. 所有节点售完后，系统将抽奖状态改为 `sold_out`。
 2. 抽奖详情页显示“开奖”按钮。
@@ -205,7 +234,7 @@ reason = 购买抽奖节点 N 个：#01, #08, #33
 
 - 某用户中奖后，该用户剩余节点从后续奖品抽取池中排除。
 
-### 2.4 FC 取消与退款
+### 2.5 FC 取消与退款
 
 只有 FC / 管理员主动取消抽奖时才退款。
 
@@ -390,14 +419,66 @@ reason = 抽奖取消，退还节点 #...
 
 这样可以避免用户通过 alt 分散购买或绕过每人上限。
 
-### 5.3 后续报表建议
+### 5.3 军团统计与导出调整
 
-后续如果要让统计更清晰，可增加：
+抽奖消费进入 PAP 汇总后，军团 PAP 页面需要同步调整展示语义，避免“作战获得”和“抽奖消费”混在一起看不清。
+
+#### 军团 PAP 页面
+
+建议取消现有 **PAP 类型分布（年度）** 图表，用空出来的位置展示军团级汇总卡片 / 图表：
+
+```text
+军团总 PAP = 普通行动获得 PAP（排除抽奖 operation）
+抽奖消耗 PAP = 抽奖 operation 产生的负数 PAP 消费，展示时转为正数
+可用 PAP = 军团总 PAP - 抽奖消耗 PAP
+```
+
+统计起始日期固定为：
+
+```text
+2026-01-01
+```
+
+展示维度：
+
+- 支持按月查看：展示某月军团获得 PAP、抽奖消耗 PAP、可用净值变化。
+- 支持按整年查看：展示某年累计获得 PAP、抽奖消耗 PAP、可用净值变化。
+- 默认可显示从 `2026-01-01` 至今的累计总览。
+
+实现上应通过 lottery 表关联识别抽奖 operation：
+
+```text
+普通行动获得 PAP：排除 lotteries.operation_id 对应的 paps
+抽奖消耗 PAP：只统计 lotteries.operation_id 对应的负数 paps / adjustments，并以正数展示
+```
+
+#### 军团 PAP 排名导出
+
+军团 PAP 排名导出 Excel / CSV 时，也要包含所选时间范围内的抽奖消耗 PAP。
+
+建议导出列至少包含：
+
+| 列 | 含义 |
+|---|---|
+| 主角色 | 按 SeAT user main character 聚合后的展示角色 |
+| 获得 PAP | 所选时间范围内普通行动获得 PAP |
+| 抽奖消耗 PAP | 所选时间范围内抽奖 operation 消耗 PAP，正数展示 |
+| 可用 PAP | 获得 PAP - 抽奖消耗 PAP |
+
+导出时间范围应与页面筛选一致：
+
+- 按月导出时，抽奖消耗只统计该月。
+- 按年导出时，抽奖消耗只统计该年。
+- 如果页面支持自定义范围，导出也使用同一范围。
+
+### 5.4 后续报表建议
+
+后续如果要让统计更清晰，可在角色 / 军团统计页统一增加：
 
 ```text
 当月获得 PAP = 普通行动 PAP 正向产出
-抽奖消耗 PAP = 抽奖 operation 负数消费
-可用 PAP = 总余额
+抽奖消耗 PAP = 抽奖 operation 负数消费，展示为正数
+可用 PAP = 获得 PAP - 抽奖消耗 PAP
 ```
 
 需要给 operation 增加类型标识，或通过 lottery 表关联识别抽奖 operation。
@@ -574,7 +655,7 @@ POST /calendar/lotteries/{lottery}/cancel
 - 节点格子；
 - 已售节点归属；
 - 我的节点；
-- 我的可用 PAP；
+- 当前个人可用 PAP，并在购买区醒目显示；
 - 购买数量输入；
 - 开奖结果；
 - 管理操作。
@@ -586,6 +667,7 @@ POST /calendar/lotteries/{lottery}/cancel
 - 已售节点显示购买者主角色名，可选显示头像。
 - 当前登录用户购买的节点高亮。
 - 节点售完后显示 `sold_out` 状态，并只对 FC / 管理员显示“开奖”按钮。
+- 购买区域顶部显示当前个人可用 PAP、单节点价格、最多还能购买的节点数。
 - 开奖后中奖节点高亮，并显示对应奖品。
 
 节点颜色建议：
@@ -659,7 +741,8 @@ draft -> open -> sold_out -> drawn
 1. 新增 lottery / prize / node migrations。
 2. 新增 `Lottery`、`LotteryPrize`、`LotteryNode` 模型。
 3. 建立与 `Operation` 的关系。
-4. 准备专用 lottery tag 或 operation 类型识别方式。
+4. 准备系统保留的抽奖专用 tag：`quantifier = 0`，`analytics = lottery`。
+5. 统计识别以 lottery 表关联为主，抽奖 tag 作为 UI 和筛选辅助。
 
 ### 阶段 2：创建与展示
 
@@ -702,6 +785,14 @@ draft -> open -> sold_out -> drawn
 3. 文案区分“PAP 发放”与“PAP 消费”。
 4. 保持手动审查调整不影响节点。
 
+### 阶段 7：军团统计与导出调整
+
+1. 军团 PAP 页面取消 PAP 类型分布（年度）图表。
+2. 在空出位置展示从 `2026-01-01` 起的军团总 PAP、抽奖消耗 PAP、可用 PAP。
+3. 支持按月 / 按年查看军团获得 PAP 与抽奖消耗 PAP。
+4. 军团 PAP 排名导出增加“抽奖消耗 PAP”和“可用 PAP”列。
+5. 导出中的抽奖消耗 PAP 必须与页面筛选时间范围一致。
+
 ---
 
 ## 11. 风险与注意事项
@@ -718,10 +809,14 @@ operation tag max(quantifier) + adjustments sum
 
 必须保证：
 
-- 抽奖专用 tag 的 `quantifier = 0`；或
-- `Pap::recomputeValueFor()` 对 lottery operation 特判基础值为 0。
+- 抽奖专用 tag 的 `quantifier = 0`；
+- 抽奖创建流程自动绑定该 tag；
+- 普通 tag 管理中禁止删除该 tag；
+- 普通 tag 管理中禁止把该 tag 的 `quantifier` 改成非 0。
 
-第一版建议使用专用 `quantifier = 0` tag，减少对核心 PAP 逻辑的改动。
+如果未来允许多个抽奖分类 tag，也必须保证所有抽奖 tag 的 `quantifier = 0`，或在 `Pap::recomputeValueFor()` 对 lottery operation 特判基础值为 0。
+
+第一版建议使用单一系统保留抽奖 tag，减少对核心 PAP 逻辑的改动。
 
 ### 11.2 统计语义会变化
 
@@ -734,6 +829,8 @@ operation tag max(quantifier) + adjustments sum
 - 获得 PAP；
 - 消费 PAP；
 - 可用 PAP。
+
+军团 PAP 页面第一版已明确要先调整：取消 PAP 类型分布（年度），改为展示军团总 PAP、抽奖消耗 PAP、可用 PAP；排名导出也必须带上相同时间范围内的抽奖消耗 PAP。
 
 ### 11.3 不应通过审查手动购买节点
 
@@ -765,6 +862,7 @@ operation tag max(quantifier) + adjustments sum
 
 - 专用 PAP 抽奖列表 / 创建 / 详情页；
 - 绑定特殊 operation；
+- 自动绑定系统保留的抽奖专用 tag（`quantifier = 0`，`analytics = lottery`）；
 - 多奖品顺序开奖；
 - 随机分配节点；
 - 每节点价格；
@@ -774,7 +872,10 @@ operation tag max(quantifier) + adjustments sum
 - 节点售完后进入 `sold_out`，由 FC / 管理员手动开奖；
 - FC / 管理员取消时全额退款；
 - 前端公开节点购买情况和节点归属；
-- 行动审查可查看并手动调整 PAP。
+- 抽奖详情页显示当前个人可用 PAP；
+- 行动审查可查看并手动调整 PAP；
+- 军团 PAP 页面增加军团总 PAP、抽奖消耗 PAP、可用 PAP 统计；
+- 军团 PAP 排名导出带上相同时间范围内的抽奖消耗 PAP。
 
 第一版暂不包含：
 
