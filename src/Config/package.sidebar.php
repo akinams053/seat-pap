@@ -23,6 +23,13 @@ return [
                 'permission' => 'calendar.view'
             ],
             [
+                'name' => 'Lottery',
+                'label' => 'calendar::lottery.menu_title',
+                'icon' => 'fas fa-dice',
+                'route' => 'lottery.index',
+                'permission' => 'calendar.view'
+            ],
+            [
                 'name' => 'Settings',
                 'label' => 'calendar::seat.settings',
                 'icon' => 'fas fa-cog',

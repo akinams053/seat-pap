@@ -169,6 +169,35 @@ Route::group([
 
     });
 
+    // PAP 超网抽奖
+    Route::group([
+        'prefix' => 'lotteries',
+    ], function (): void {
+
+        Route::get('/', [
+            'as' => 'lottery.index',
+            'uses' => 'LotteryController@index',
+        ]);
+
+        Route::get('/create', [
+            'as' => 'lottery.create',
+            'uses' => 'LotteryController@create',
+            'middleware' => 'can:calendar.create',
+        ]);
+
+        Route::post('/', [
+            'as' => 'lottery.store',
+            'uses' => 'LotteryController@store',
+            'middleware' => 'can:calendar.create',
+        ]);
+
+        Route::get('/{lottery}', [
+            'as' => 'lottery.show',
+            'uses' => 'LotteryController@show',
+        ])->where('lottery', '[0-9]+');
+
+    });
+
     // 行动审查
     Route::group([
         'prefix' => 'audit',
