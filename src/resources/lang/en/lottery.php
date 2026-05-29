@@ -61,9 +61,29 @@ return [
     'node_winner' => 'Winner',
     'my_nodes' => 'My nodes',
     'my_nodes_none' => 'You have not purchased any nodes yet.',
-    'purchase_coming_soon' => 'Purchasing will be available in a later phase.',
     'winner_label' => 'Winner',
     'winner_node' => 'Winning node',
     'not_drawn_yet' => 'Not drawn yet',
+
+    // purchase
+    'buy_title' => 'Buy nodes',
+    'available_pap_label' => 'My available PAP',
+    'remaining_label' => 'Remaining nodes',
+    'my_owned_label' => 'My nodes',
+    'buy_quantity' => 'Quantity',
+    'buy_btn' => 'Buy',
+    'max_buyable' => 'You can buy up to :n now',
+    'buy_confirm' => 'Buy :count node(s) for :spent PAP?',
+    'buy_closed' => 'Purchasing is not available in the current status.',
+    'buy_no_balance_hint' => 'Not enough available PAP to buy.',
+    'purchase_reason' => 'Bought :count lottery node(s): :nodes',
+    'purchase_success' => 'Purchased :count node(s) for :spent PAP.',
+
+    // purchase errors
+    'err_not_found' => 'Lottery not found.',
+    'err_not_open' => 'This lottery is not open for purchase.',
+    'err_not_enough_nodes' => 'Not enough nodes left, only :remaining remaining.',
+    'err_exceed_limit' => 'Exceeds per-user limit (limit :limit, you own :owned).',
+    'err_insufficient_pap' => 'Not enough available PAP: have :available, need :need. Please refresh and retry.',
 
 ];

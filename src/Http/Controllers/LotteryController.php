@@ -3,6 +3,7 @@
 namespace Seat\Kassie\Calendar\Http\Controllers;
 
 use Illuminate\Contracts\View\Factory;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,18 +13,26 @@ use Seat\Kassie\Calendar\Models\Lottery;
 use Seat\Kassie\Calendar\Models\LotteryNode;
 use Seat\Kassie\Calendar\Models\LotteryPrize;
 use Seat\Kassie\Calendar\Models\Operation;
+use Seat\Kassie\Calendar\Models\Pap;
+use Seat\Kassie\Calendar\Models\PapAdjustment;
 use Seat\Web\Http\Controllers\Controller;
+use Seat\Web\Models\User;
 
 /**
- * PAP 超网抽奖控制器（阶段 2：创建与展示）
+ * PAP 超网抽奖控制器（阶段 2：创建与展示；阶段 3：购买与扣费）
  *
- * 购买 / 开奖 / 取消退款分别在阶段 3 / 4 / 5 补充。
+ * 开奖 / 取消退款分别在阶段 4 / 5 补充。
  */
 class LotteryController extends Controller
 {
+    /**
+     * 可用 PAP 固定起始日（与现有 PAP 统计 / 商店 API 口径一致，见计划 §5.1）
+     */
+    private const PAP_SINCE = '2026-01-01';
+
     public function __construct()
     {
-        $this->middleware('can:calendar.view')->only(['index', 'show']);
+        $this->middleware('can:calendar.view')->only(['index', 'show', 'purchase']);
         $this->middleware('can:calendar.create')->only(['create', 'store']);
     }
 
@@ -157,12 +166,218 @@ class LotteryController extends Controller
             ->filter(fn($n) => ! is_null($n->purchased_at) && is_null($n->refunded_at) && is_null($n->voided_at))
             ->count();
 
+        $user = auth()->user();
+        // 当前用户在本抽奖里有效持有的节点数（按 user_id 聚合所有 alt）
+        $myOwned = $model->nodes
+            ->filter(fn($n) => $n->user_id == $user->id
+                && ! is_null($n->purchased_at) && is_null($n->refunded_at) && is_null($n->voided_at))
+            ->count();
+
         return view('calendar::lottery.show', [
             'lottery' => $model,
             'char_names' => $charNames,
             'sold_count' => $soldCount,
-            'my_user_id' => auth()->user()->id,
-            'can_manage' => auth()->user()->can('calendar.create'),
+            'remaining_count' => $model->node_count - $soldCount,
+            'my_user_id' => $user->id,
+            'my_owned' => $myOwned,
+            'available_pap' => $this->availablePap($user),
+            'can_manage' => $user->can('calendar.create'),
         ]);
+    }
+
+    /**
+     * 购买节点（阶段 3 核心，见计划 §6.1）
+     *
+     * 全程在事务内、锁定 lottery 主行后串行处理：
+     * 重算余额（不 floor）→ 校验上限/剩余 → 随机选号 → 写负数 PapAdjustment → recompute。
+     */
+    public function purchase(Request $request, int $lottery): JsonResponse
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
+        ]);
+        $quantity = (int) $validated['quantity'];
+
+        $user = auth()->user();
+        $mainCharId = $user->main_character_id;
+        if (empty($mainCharId)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => trans('calendar::lottery.err_no_main_character'),
+            ], 422);
+        }
+        $charIds = $user->associatedCharacterIds();
+
+        $result = DB::transaction(function () use ($lottery, $quantity, $user, $mainCharId, $charIds): array {
+            // 1. 锁定 lottery 主行（串行化同一抽奖的并发购买）
+            $model = Lottery::lockForUpdate()->find($lottery);
+            if (is_null($model)) {
+                return ['error' => trans('calendar::lottery.err_not_found'), 'code' => 404];
+            }
+
+            // 2. 状态必须 open
+            if ($model->status !== 'open') {
+                return ['error' => trans('calendar::lottery.err_not_open')];
+            }
+
+            // 3. 锁内取未售节点
+            $unsold = LotteryNode::where('lottery_id', $model->id)
+                ->whereNull('user_id')
+                ->whereNull('purchased_at')
+                ->lockForUpdate()
+                ->get(['id', 'node_number']);
+
+            if ($quantity > $unsold->count()) {
+                return ['error' => trans('calendar::lottery.err_not_enough_nodes', ['remaining' => $unsold->count()])];
+            }
+
+            // 4. 每人上限（锁内重算，按 user_id 聚合）
+            if (! is_null($model->max_nodes_per_user)) {
+                $owned = LotteryNode::where('lottery_id', $model->id)
+                    ->where('user_id', $user->id)
+                    ->whereNotNull('purchased_at')
+                    ->whereNull('refunded_at')
+                    ->whereNull('voided_at')
+                    ->count();
+                if ($owned + $quantity > $model->max_nodes_per_user) {
+                    return ['error' => trans('calendar::lottery.err_exceed_limit', [
+                        'limit' => $model->max_nodes_per_user,
+                        'owned' => $owned,
+                    ])];
+                }
+            }
+
+            // 5. 余额：事务内重算，不 floor 到 0（§11.6）
+            $totalPrice = round((float) $model->node_price * $quantity, 2);
+            $available = (float) DB::table('kassie_calendar_paps')
+                ->whereIn('character_id', $charIds)
+                ->where('join_time', '>=', self::PAP_SINCE)
+                ->sum('value');
+            if ($available < $totalPrice) {
+                return ['error' => trans('calendar::lottery.err_insufficient_pap', [
+                    'available' => number_format($available, 2),
+                    'need' => number_format($totalPrice, 2),
+                ])];
+            }
+
+            // 6. 随机选号（random_int 公平抽取）
+            $chosen = $this->randomPick($unsold->all(), $quantity);
+            $chosenIds = array_map(fn($n) => $n->id, $chosen);
+            $chosenNumbers = array_map(fn($n) => (int) $n->node_number, $chosen);
+            sort($chosenNumbers);
+
+            $operationId = $model->operation_id;
+            $now = carbon();
+
+            // 7. 确保抽奖 operation 下该主角色的 Pap 行存在（首次 save，value=0；之后只 recompute，见 §11.5）
+            Pap::firstOrCreate(
+                ['operation_id' => $operationId, 'character_id' => $mainCharId],
+                ['join_time' => $now->toDateTimeString(), 'created_at' => $now]
+            );
+
+            // 8. 负数聚合扣费记录
+            $nodeListStr = implode(', ', array_map(
+                fn($n) => '#' . str_pad((string) $n, 2, '0', STR_PAD_LEFT),
+                $chosenNumbers
+            ));
+            $adjustment = PapAdjustment::create([
+                'operation_id' => $operationId,
+                'character_id' => $mainCharId,
+                'value' => -$totalPrice,
+                'reason' => trans('calendar::lottery.purchase_reason', [
+                    'count' => $quantity,
+                    'nodes' => $nodeListStr,
+                ]),
+                'created_by_character_id' => $mainCharId,
+                'created_at' => $now,
+            ]);
+
+            // 更新选中节点归属（whereNull user_id 双保险）
+            $updated = LotteryNode::whereIn('id', $chosenIds)
+                ->whereNull('user_id')
+                ->update([
+                    'user_id' => $user->id,
+                    'character_id' => $mainCharId,
+                    'pap_adjustment_id' => $adjustment->id,
+                    'purchased_at' => $now,
+                ]);
+
+            // 节点更新数与预期不符：抛异常整体回滚（不应发生，锁内已串行）
+            if ($updated !== $quantity) {
+                throw new \RuntimeException('Lottery node allocation mismatch.');
+            }
+
+            // 9. 回写 paps.value（绝不再 plain save Pap）
+            Pap::recomputeValueFor($operationId, $mainCharId);
+
+            // 售罄判定
+            $soldNow = LotteryNode::where('lottery_id', $model->id)
+                ->whereNotNull('purchased_at')
+                ->whereNull('refunded_at')
+                ->whereNull('voided_at')
+                ->count();
+            if ($soldNow >= $model->node_count) {
+                $model->status = 'sold_out';
+                $model->save();
+            }
+
+            return [
+                'ok' => true,
+                'chosen' => $chosenNumbers,
+                'spent' => $totalPrice,
+                'sold_count' => $soldNow,
+                'lottery_status' => $model->status,
+            ];
+        });
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $result['error'],
+            ], $result['code'] ?? 422);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'chosen' => $result['chosen'],
+            'spent' => $result['spent'],
+            'sold_count' => $result['sold_count'],
+            'lottery_status' => $result['lottery_status'],
+            // 购买后重算可用 PAP（不 floor）
+            'available_pap' => $this->availablePap($user),
+            'message' => trans('calendar::lottery.purchase_success', [
+                'count' => count($result['chosen']),
+                'spent' => number_format($result['spent'], 2),
+            ]),
+        ]);
+    }
+
+    /**
+     * 抽奖可用 PAP：复用现有统计口径（join_time >= 起始日、按 alt 聚合），
+     * 但不 floor 到 0——透支必须照实表达（§11.6）。
+     */
+    private function availablePap(User $user): float
+    {
+        return (float) DB::table('kassie_calendar_paps')
+            ->whereIn('character_id', $user->associatedCharacterIds())
+            ->where('join_time', '>=', self::PAP_SINCE)
+            ->sum('value');
+    }
+
+    /**
+     * 从候选集中用 random_int 公平抽取 n 个（部分 Fisher-Yates）
+     *
+     * @param  array  $items
+     * @return array
+     */
+    private function randomPick(array $items, int $n): array
+    {
+        $count = count($items);
+        for ($i = 0; $i < $n && $i < $count; $i++) {
+            $j = random_int($i, $count - 1);
+            [$items[$i], $items[$j]] = [$items[$j], $items[$i]];
+        }
+
+        return array_slice($items, 0, $n);
     }
 }

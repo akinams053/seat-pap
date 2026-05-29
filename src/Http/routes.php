@@ -196,6 +196,11 @@ Route::group([
             'uses' => 'LotteryController@show',
         ])->where('lottery', '[0-9]+');
 
+        Route::post('/{lottery}/purchase', [
+            'as' => 'lottery.purchase',
+            'uses' => 'LotteryController@purchase',
+        ])->where('lottery', '[0-9]+');
+
     });
 
     // 行动审查

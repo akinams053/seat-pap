@@ -92,8 +92,56 @@
                 </div>
                 <div class="card-body">
                     {{-- 购买区占位：阶段 3 完善 --}}
-                    <div class="alert alert-secondary">
-                        {{ trans('calendar::lottery.purchase_coming_soon') }}
+                    @php
+                        $myNodeNumbers = $lottery->nodes
+                            ->filter(fn($n) => $n->user_id == $my_user_id
+                                && ! is_null($n->purchased_at) && is_null($n->refunded_at) && is_null($n->voided_at))
+                            ->pluck('node_number')->sort()->values();
+                    @endphp
+
+                    {{-- 购买区 --}}
+                    <div class="border rounded p-2 mb-3" id="buy-panel">
+                        <div class="row text-center mb-2">
+                            <div class="col">
+                                <div class="text-muted small">{{ trans('calendar::lottery.available_pap_label') }}</div>
+                                <strong id="available-pap">{{ number_format($available_pap, 2) }}</strong>
+                            </div>
+                            <div class="col">
+                                <div class="text-muted small">{{ trans('calendar::lottery.remaining_label') }}</div>
+                                <strong id="remaining-count">{{ $remaining_count }}</strong>
+                            </div>
+                            <div class="col">
+                                <div class="text-muted small">{{ trans('calendar::lottery.my_owned_label') }}</div>
+                                <strong>{{ $my_owned }}</strong>
+                            </div>
+                            <div class="col">
+                                <div class="text-muted small">{{ trans('calendar::lottery.price_label') }}</div>
+                                <strong>{{ number_format($lottery->node_price, 2) }}</strong>
+                            </div>
+                        </div>
+
+                        @if($lottery->status === 'open')
+                            <div class="input-group">
+                                <input type="number" id="buy-quantity" class="form-control" min="1" step="1" value="1">
+                                <div class="input-group-append">
+                                    <button type="button" class="btn btn-primary" id="buy-btn">
+                                        <i class="fas fa-shopping-cart"></i> {{ trans('calendar::lottery.buy_btn') }}
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted" id="max-buyable-hint"></small>
+                        @else
+                            <div class="alert alert-secondary mb-0">{{ trans('calendar::lottery.buy_closed') }}</div>
+                        @endif
+
+                        @if($myNodeNumbers->isNotEmpty())
+                            <div class="mt-2 small">
+                                <span class="text-muted">{{ trans('calendar::lottery.my_nodes') }}：</span>
+                                @foreach($myNodeNumbers as $num)
+                                    <span class="badge badge-success">#{{ $num }}</span>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     <div class="lottery-node-grid">
@@ -149,5 +197,70 @@
 @push('javascript')
     <script>
         $('[data-toggle="tooltip"]').tooltip();
+
+        @if($lottery->status === 'open')
+        (function () {
+            var price = {{ $lottery->node_price }};
+            var available = {{ $available_pap }};
+            var remaining = {{ $remaining_count }};
+            var myOwned = {{ $my_owned }};
+            var maxPerUser = {{ $lottery->max_nodes_per_user ?? 'null' }};
+            var purchaseUrl = '{{ route('lottery.purchase', ['lottery' => $lottery->id]) }}';
+            var csrf = '{{ csrf_token() }}';
+
+            // 本次最多可购：受剩余、余额、每人上限三者约束
+            function maxBuyable() {
+                var byBalance = price > 0 ? Math.floor(available / price) : 0;
+                var max = Math.min(remaining, byBalance);
+                if (maxPerUser !== null) {
+                    max = Math.min(max, maxPerUser - myOwned);
+                }
+                return Math.max(0, max);
+            }
+
+            function refreshHint() {
+                var max = maxBuyable();
+                $('#max-buyable-hint').text('{{ trans('calendar::lottery.max_buyable', ['n' => ':N']) }}'.replace(':N', max));
+                if (max <= 0) {
+                    $('#buy-btn').prop('disabled', true);
+                }
+            }
+            refreshHint();
+
+            $('#buy-btn').on('click', function () {
+                var qty = parseInt($('#buy-quantity').val(), 10);
+                var max = maxBuyable();
+                if (!(qty >= 1)) { return; }
+                if (qty > max) {
+                    alert('{{ trans('calendar::lottery.max_buyable', ['n' => ':N']) }}'.replace(':N', max));
+                    return;
+                }
+                var spent = (qty * price).toFixed(2);
+                if (!confirm('{{ trans('calendar::lottery.buy_confirm', ['count' => ':C', 'spent' => ':S']) }}'
+                        .replace(':C', qty).replace(':S', spent))) {
+                    return;
+                }
+
+                var $btn = $(this).prop('disabled', true);
+                $.ajax({
+                    url: purchaseUrl,
+                    method: 'POST',
+                    data: { _token: csrf, quantity: qty },
+                    success: function (resp) {
+                        // 购买成功后刷新整页，保证节点/余额/进度均以服务端为准（§6.4）
+                        window.location.reload();
+                    },
+                    error: function (xhr) {
+                        var msg = (xhr.responseJSON && xhr.responseJSON.message)
+                            || (xhr.responseJSON && xhr.responseJSON.errors
+                                && Object.values(xhr.responseJSON.errors).flat().join('; '))
+                            || 'Error';
+                        alert(msg);
+                        $btn.prop('disabled', false);
+                    }
+                });
+            });
+        })();
+        @endif
     </script>
 @endpush

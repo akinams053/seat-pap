@@ -61,9 +61,29 @@ return [
     'node_winner' => '中奖',
     'my_nodes' => '我的节点',
     'my_nodes_none' => '你还没有购买任何节点。',
-    'purchase_coming_soon' => '购买功能将在后续阶段开放。',
     'winner_label' => '中奖者',
     'winner_node' => '中奖节点',
     'not_drawn_yet' => '尚未开奖',
+
+    // 购买区
+    'buy_title' => '购买节点',
+    'available_pap_label' => '我的可用 PAP',
+    'remaining_label' => '剩余节点',
+    'my_owned_label' => '我已购节点',
+    'buy_quantity' => '购买数量',
+    'buy_btn' => '购买',
+    'max_buyable' => '本次最多可购 :n 个',
+    'buy_confirm' => '确认购买 :count 个节点，花费 :spent PAP？',
+    'buy_closed' => '当前状态不可购买。',
+    'buy_no_balance_hint' => '可用 PAP 不足，无法购买。',
+    'purchase_reason' => '购买抽奖节点 :count 个：:nodes',
+    'purchase_success' => '购买成功：:count 个节点，花费 :spent PAP。',
+
+    // 购买错误
+    'err_not_found' => '抽奖不存在。',
+    'err_not_open' => '该抽奖当前不可购买（非进行中状态）。',
+    'err_not_enough_nodes' => '剩余节点不足，当前仅剩 :remaining 个。',
+    'err_exceed_limit' => '超过每人上限（上限 :limit，你已购 :owned）。',
+    'err_insufficient_pap' => '可用 PAP 不足：当前 :available，需要 :need。请刷新后重试。',
 
 ];
