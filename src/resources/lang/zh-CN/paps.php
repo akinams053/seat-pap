@@ -96,4 +96,8 @@ return [
     'audit_invalid_amount' => '请输入大于 0 的数量。',
     'audit_invalid_reason' => '请填写奖惩理由。',
     'audit_not_in_fleet' => '该成员未在本次行动的 PAP 名单中，无法奖惩。',
+
+    'audit_lottery_badge' => '抽奖',
+    'audit_lottery_spent' => '消费 PAP :amount',
+    'audit_lottery_link' => '查看抽奖详情',
 ];

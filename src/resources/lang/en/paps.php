@@ -96,4 +96,8 @@ return [
     'audit_invalid_amount' => 'Please enter an amount greater than 0.',
     'audit_invalid_reason' => 'Please provide a reason.',
     'audit_not_in_fleet' => 'Member is not on the PAP roster for this operation.',
+
+    'audit_lottery_badge' => 'Lottery',
+    'audit_lottery_spent' => 'Spent PAP :amount',
+    'audit_lottery_link' => 'View lottery',
 ];

@@ -6,6 +6,9 @@
                     <i class="fas fa-clipboard-check"></i>
                     <span id="audit-op-title"></span>
                     — {{ trans('calendar::paps.audit_modal_title') }}
+                    <a id="audit-lottery-link" href="#" target="_blank" class="btn btn-sm btn-light ml-2 d-none">
+                        <i class="fas fa-dice"></i> {{ trans('calendar::paps.audit_lottery_link') }}
+                    </a>
                 </h4>
                 <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
             </div>

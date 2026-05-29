@@ -43,6 +43,7 @@
             operations: '{{ route('audit.operations.json') }}',
             members_template: '{{ route('operation.audit.members', ['id' => 0]) }}',
             adjust_template: '{{ route('operation.audit.adjust', ['id' => 0]) }}',
+            lottery_show_template: '{{ route('lottery.show', ['lottery' => 0]) }}',
         };
 
         var audit_state = {
@@ -77,6 +78,15 @@
             $('#audit-member-count').text(op.member_count);
             $('#audit-total').text(op.pap_total.toFixed(2));
             audit_state.current_pap_type = op.analytics;
+
+            // 抽奖行动：在弹窗显示跳转抽奖详情页的链接（§4.4.3）
+            if (op.is_lottery && op.lottery_id) {
+                $('#audit-lottery-link')
+                    .attr('href', audit_url.lottery_show_template.replace(/\/0$/, '/' + op.lottery_id))
+                    .removeClass('d-none');
+            } else {
+                $('#audit-lottery-link').addClass('d-none');
+            }
 
             var showActions = !!payload.can_audit;
 
@@ -147,7 +157,16 @@
             },
             order: [[1, 'desc']],
             columns: [
-                {data: 'title', name: 'title'},
+                {data: 'title', name: 'title',
+                    render: function (d, t, row) {
+                        var title = escapeHtml(d || '');
+                        if (row.is_lottery) {
+                            return '<span class="badge badge-warning mr-1">' +
+                                '{{ trans('calendar::paps.audit_lottery_badge') }}</span>' + title;
+                        }
+                        return title;
+                    }
+                },
                 {data: 'fleet_end_at', name: 'fleet_end_at',
                     render: function (d) { return d || '<span class="text-muted">—</span>'; }
                 },
@@ -160,11 +179,23 @@
                     }
                 },
                 {data: 'pap_value', name: 'pap_value', className: 'text-right',
-                    render: function (d) { return Number(d).toFixed(2); }
+                    render: function (d, t, row) {
+                        // 抽奖行动单 PAP 显示 — 而非 0，避免和真实 PAP 混淆（§4.4.3）
+                        if (row.is_lottery) return '<span class="text-muted">—</span>';
+                        return Number(d).toFixed(2);
+                    }
                 },
                 {data: 'member_count', name: 'member_count', className: 'text-right'},
                 {data: 'pap_total', name: 'pap_total', className: 'text-right',
-                    render: function (d) { return Number(d).toFixed(2); }
+                    render: function (d, t, row) {
+                        var v = Number(d);
+                        // 抽奖总额为负时显示“消费 PAP xxx”（§4.4.3）
+                        if (row.is_lottery && v < 0) {
+                            return '{{ trans('calendar::paps.audit_lottery_spent', ['amount' => ':A']) }}'
+                                .replace(':A', Math.abs(v).toFixed(2));
+                        }
+                        return v.toFixed(2);
+                    }
                 },
                 {data: null, orderable: false, searchable: false, className: 'text-center',
                     render: function (d, t, row) {

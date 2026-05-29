@@ -49,6 +49,8 @@ class AuditController extends Controller
             ->join('kassie_calendar_paps as p', 'p.operation_id', '=', 'o.id')
             ->leftJoin('calendar_tag_operation as tx', 'tx.operation_id', '=', 'o.id')
             ->leftJoin('calendar_tags as t', 't.id', '=', 'tx.tag_id')
+            // 抽奖识别（1:1，不会放大行数；见计划 §4.4.3 主识别）
+            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'o.id')
             ->select(
                 'o.id',
                 'o.title',
@@ -58,7 +60,8 @@ class AuditController extends Controller
                 DB::raw('MAX(p.created_at) as latest_pap_at'),
                 DB::raw('COUNT(DISTINCT p.character_id) as member_count'),
                 DB::raw('COALESCE(SUM(p.value), 0) as pap_total'),
-                DB::raw('COALESCE(MAX(t.quantifier), 0) as pap_value')
+                DB::raw('COALESCE(MAX(t.quantifier), 0) as pap_value'),
+                DB::raw('MAX(l.id) as lottery_id')
             )
             ->groupBy('o.id', 'o.title', 'o.fc', 'o.fc_character_id', 'o.end_at');
 
@@ -89,6 +92,8 @@ class AuditController extends Controller
             'member_count' => (int) $r->member_count,
             'pap_value' => (float) $r->pap_value,
             'pap_total' => (float) $r->pap_total,
+            'lottery_id' => $r->lottery_id ? (int) $r->lottery_id : null,
+            'is_lottery' => ! is_null($r->lottery_id),
             'can_audit' => $canAudit,
         ]);
 
@@ -105,7 +110,7 @@ class AuditController extends Controller
      */
     public function membersJson(int $operationId): JsonResponse
     {
-        $operation = Operation::with('tags')->find($operationId);
+        $operation = Operation::with('tags', 'lottery')->find($operationId);
         if (is_null($operation))
             return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
 
@@ -163,6 +168,8 @@ class AuditController extends Controller
                 'fleet_end_at' => optional($paps->max('created_at'))->toDateTimeString() ?: optional($operation->end_at)->toDateTimeString(),
                 'member_count' => $paps->count(),
                 'pap_total' => (float) $paps->sum('value'),
+                'lottery_id' => $operation->lottery?->id,
+                'is_lottery' => ! is_null($operation->lottery),
             ],
             'can_audit' => auth()->user()->can('calendar.create'),
             'members' => $members,
