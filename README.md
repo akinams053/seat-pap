@@ -68,6 +68,14 @@
 
 目标部署环境：**Ubuntu 22.04**
 
+## 项目文档
+
+更多指南和功能设计文档见 [`docs/README.md`](docs/README.md)：
+
+- [`docs/FC指南.md`](docs/FC指南.md)：FC / 管理人员日常操作说明。
+- [`docs/PAP商店对接指南.md`](docs/PAP商店对接指南.md)：PAP 商店 JWT 跳转与 API 对接协议。
+- [`docs/PAP超网抽奖功能计划.md`](docs/PAP超网抽奖功能计划.md)：PAP 超网抽奖模块设计草案。
+
 ## 安装
 
 当前开发分支为 `localization`，需要指定版本安装。
