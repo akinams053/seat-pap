@@ -23,12 +23,17 @@
     @endphp
 
     {{-- 管理操作（FC / 管理员） --}}
-    @if($can_manage && $lottery->status === 'sold_out')
+    @if($can_manage && in_array($lottery->status, ['open', 'sold_out']))
         <div class="card">
             <div class="card-body">
                 <strong class="mr-2">{{ trans('calendar::lottery.manage_title') }}：</strong>
-                <button type="button" class="btn btn-warning" id="draw-btn">
-                    <i class="fas fa-dice"></i> {{ trans('calendar::lottery.draw_btn') }}
+                @if($lottery->status === 'sold_out')
+                    <button type="button" class="btn btn-warning" id="draw-btn">
+                        <i class="fas fa-dice"></i> {{ trans('calendar::lottery.draw_btn') }}
+                    </button>
+                @endif
+                <button type="button" class="btn btn-outline-danger" id="cancel-btn">
+                    <i class="fas fa-ban"></i> {{ trans('calendar::lottery.cancel_btn') }}
                 </button>
             </div>
         </div>
@@ -291,6 +296,28 @@
             var $btn = $(this).prop('disabled', true);
             $.ajax({
                 url: '{{ route('lottery.draw', ['lottery' => $lottery->id]) }}',
+                method: 'POST',
+                data: { _token: '{{ csrf_token() }}' },
+                success: function () {
+                    window.location.reload();
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.message) || 'Error';
+                    alert(msg);
+                    $btn.prop('disabled', false);
+                }
+            });
+        });
+        @endif
+
+        @if($can_manage && in_array($lottery->status, ['open', 'sold_out']))
+        $('#cancel-btn').on('click', function () {
+            if (!confirm('{{ trans('calendar::lottery.cancel_confirm') }}')) {
+                return;
+            }
+            var $btn = $(this).prop('disabled', true);
+            $.ajax({
+                url: '{{ route('lottery.cancel', ['lottery' => $lottery->id]) }}',
                 method: 'POST',
                 data: { _token: '{{ csrf_token() }}' },
                 success: function () {

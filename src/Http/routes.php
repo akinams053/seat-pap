@@ -207,6 +207,12 @@ Route::group([
             'middleware' => 'can:calendar.create',
         ])->where('lottery', '[0-9]+');
 
+        Route::post('/{lottery}/cancel', [
+            'as' => 'lottery.cancel',
+            'uses' => 'LotteryController@cancel',
+            'middleware' => 'can:calendar.create',
+        ])->where('lottery', '[0-9]+');
+
     });
 
     // 行动审查

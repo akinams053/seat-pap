@@ -94,4 +94,11 @@ return [
     'drawn_info' => 'Drawn by :by · at :at',
     'err_not_sold_out' => 'Only a fully sold-out lottery can be drawn.',
 
+    // cancel & refund
+    'cancel_btn' => 'Cancel & refund',
+    'cancel_confirm' => 'Cancel this lottery and refund all buyers? This cannot be undone.',
+    'cancel_success' => 'Lottery cancelled, refunded :count node(s).',
+    'refund_reason' => 'Lottery cancelled, refunded nodes :nodes',
+    'err_not_cancellable' => 'Cannot cancel in the current status (only open or sold-out and not drawn).',
+
 ];

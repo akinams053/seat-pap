@@ -19,9 +19,8 @@ use Seat\Web\Http\Controllers\Controller;
 use Seat\Web\Models\User;
 
 /**
- * PAP 超网抽奖控制器（阶段 2：创建与展示；阶段 3：购买与扣费；阶段 4：手动开奖）
- *
- * 取消退款在阶段 5 补充。
+ * PAP 超网抽奖控制器
+ * 阶段 2 创建与展示 / 阶段 3 购买扣费 / 阶段 4 手动开奖 / 阶段 5 取消退款
  */
 class LotteryController extends Controller
 {
@@ -33,7 +32,7 @@ class LotteryController extends Controller
     public function __construct()
     {
         $this->middleware('can:calendar.view')->only(['index', 'show', 'purchase']);
-        $this->middleware('can:calendar.create')->only(['create', 'store', 'draw']);
+        $this->middleware('can:calendar.create')->only(['create', 'store', 'draw', 'cancel']);
     }
 
     /**
@@ -468,6 +467,86 @@ class LotteryController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => trans('calendar::lottery.draw_success'),
+        ]);
+    }
+
+    /**
+     * FC / 管理员取消并退款（阶段 5，见计划 §2.5 / §6.6）
+     *
+     * 仅 open / sold_out 且未开奖可取消；退款不删原扣费，
+     * 按用户聚合追加正数 PapAdjustment 并回写 paps.value，状态转 cancelled。
+     */
+    public function cancel(int $lottery): JsonResponse
+    {
+        $operatorCharId = auth()->user()->main_character_id;
+
+        $result = DB::transaction(function () use ($lottery, $operatorCharId): array {
+            // 锁主行并重确认状态（幂等：已 cancelled / drawn 不可再退，见 §6.3）
+            $model = Lottery::lockForUpdate()->find($lottery);
+            if (is_null($model)) {
+                return ['error' => trans('calendar::lottery.err_not_found'), 'code' => 404];
+            }
+            if (! in_array($model->status, ['open', 'sold_out'], true)) {
+                return ['error' => trans('calendar::lottery.err_not_cancellable')];
+            }
+
+            // 锁定有效持有节点（已购、未退、未作废）
+            $nodes = LotteryNode::where('lottery_id', $model->id)
+                ->whereNotNull('purchased_at')
+                ->whereNull('refunded_at')
+                ->whereNull('voided_at')
+                ->lockForUpdate()
+                ->get(['id', 'node_number', 'user_id', 'character_id']);
+
+            $operationId = $model->operation_id;
+            $now = carbon();
+            $price = (float) $model->node_price;
+
+            // 按购买主角色聚合退款（与扣费口径一致：节点数 × 单价）
+            $byChar = $nodes->groupBy('character_id');
+            foreach ($byChar as $charId => $charNodes) {
+                $count = $charNodes->count();
+                $refund = round($price * $count, 2);
+                if ($refund <= 0) {
+                    continue;
+                }
+
+                $numbers = $charNodes->pluck('node_number')->sort()->values()
+                    ->map(fn($n) => '#' . str_pad((string) $n, 2, '0', STR_PAD_LEFT))
+                    ->implode(', ');
+
+                PapAdjustment::create([
+                    'operation_id' => $operationId,
+                    'character_id' => (int) $charId,
+                    'value' => $refund, // 正数退款
+                    'reason' => trans('calendar::lottery.refund_reason', ['nodes' => $numbers]),
+                    'created_by_character_id' => $operatorCharId,
+                    'created_at' => $now,
+                ]);
+
+                Pap::recomputeValueFor($operationId, (int) $charId);
+            }
+
+            // 标记节点已退款（防重复退款）
+            LotteryNode::whereIn('id', $nodes->pluck('id'))
+                ->update(['refunded_at' => $now]);
+
+            $model->status = 'cancelled';
+            $model->save();
+
+            return ['ok' => true, 'refunded_nodes' => $nodes->count()];
+        });
+
+        if (isset($result['error'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $result['error'],
+            ], $result['code'] ?? 422);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => trans('calendar::lottery.cancel_success', ['count' => $result['refunded_nodes']]),
         ]);
     }
 

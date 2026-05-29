@@ -94,4 +94,11 @@ return [
     'drawn_info' => '开奖人 :by · 开奖时间 :at',
     'err_not_sold_out' => '只有节点全部售罄的抽奖才能开奖。',
 
+    // 取消退款
+    'cancel_btn' => '取消并退款',
+    'cancel_confirm' => '确认取消本抽奖并向所有购买者退款？此操作不可撤销。',
+    'cancel_success' => '抽奖已取消，已退款 :count 个节点。',
+    'refund_reason' => '抽奖取消，退还节点 :nodes',
+    'err_not_cancellable' => '当前状态不可取消（仅进行中或已售罄且未开奖可取消）。',
+
 ];
