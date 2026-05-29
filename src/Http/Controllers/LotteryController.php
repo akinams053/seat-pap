@@ -377,9 +377,11 @@ class LotteryController extends Controller
             if (is_null($model)) {
                 return ['error' => trans('calendar::lottery.err_not_found'), 'code' => 404];
             }
-            if ($model->status !== 'sold_out') {
-                return ['error' => trans('calendar::lottery.err_not_sold_out')];
+            // 允许 sold_out 正常开奖，也允许 open 状态下凑不满人时由 FC 提前开奖
+            if (! in_array($model->status, ['open', 'sold_out'], true)) {
+                return ['error' => trans('calendar::lottery.err_not_drawable')];
             }
+            $isEarly = $model->status === 'open';
 
             // 有效节点池（已购、未退、未作废）
             $nodes = LotteryNode::where('lottery_id', $model->id)
@@ -387,6 +389,11 @@ class LotteryController extends Controller
                 ->whereNull('refunded_at')
                 ->whereNull('voided_at')
                 ->get(['id', 'node_number', 'user_id', 'character_id']);
+
+            // 提前开奖至少要有一个已售节点，否则无候选、开奖无意义
+            if ($nodes->isEmpty()) {
+                return ['error' => trans('calendar::lottery.err_no_sold_nodes')];
+            }
 
             $prizes = LotteryPrize::where('lottery_id', $model->id)
                 ->orderBy('sort_order')
@@ -449,11 +456,18 @@ class LotteryController extends Controller
                 ];
             }
 
+            // 提前开奖：把未售节点作废，避免 drawn 后仍残留“可购”语义
+            if ($isEarly) {
+                LotteryNode::where('lottery_id', $model->id)
+                    ->whereNull('purchased_at')
+                    ->update(['voided_at' => $now]);
+            }
+
             $model->status = 'drawn';
             $model->drawn_by_character_id = $drawnByCharId;
             $model->drawn_at = $now;
             $model->draw_log = [
-                'draw_mode' => 'sold_out',
+                'draw_mode' => $isEarly ? 'early' : 'sold_out',
                 'allow_repeat_winners' => $allowRepeat,
                 'rounds' => $rounds,
             ];

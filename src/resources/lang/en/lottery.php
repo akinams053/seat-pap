@@ -89,10 +89,14 @@ return [
     // draw
     'manage_title' => 'Management',
     'draw_btn' => 'Draw',
+    'draw_early_btn' => 'Draw early',
     'draw_confirm' => 'Confirm draw? Results cannot be changed.',
+    'draw_early_confirm' => 'Some nodes are still unsold. Draw early anyway? Unsold nodes will be voided, and if prizes outnumber buyers the extra prizes will have no winner. Results cannot be changed.',
     'draw_success' => 'Draw completed.',
     'drawn_info' => 'Drawn by :by · at :at',
     'err_not_sold_out' => 'Only a fully sold-out lottery can be drawn.',
+    'err_not_drawable' => 'Only an open or sold-out lottery can be drawn.',
+    'err_no_sold_nodes' => 'No nodes have been sold yet; cannot draw.',
 
     // cancel & refund
     'cancel_btn' => 'Cancel & refund',

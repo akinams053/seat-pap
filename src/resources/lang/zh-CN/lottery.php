@@ -89,10 +89,14 @@ return [
     // 开奖
     'manage_title' => '管理操作',
     'draw_btn' => '开奖',
+    'draw_early_btn' => '提前开奖',
     'draw_confirm' => '确认开奖？开奖结果不可更改。',
+    'draw_early_confirm' => '当前还有节点未售出。确认提前开奖吗？未售出的节点将作废，若奖品多于已购人数，多出的奖品将无人中奖。开奖结果不可更改。',
     'draw_success' => '开奖完成。',
     'drawn_info' => '开奖人 :by · 开奖时间 :at',
     'err_not_sold_out' => '只有节点全部售罄的抽奖才能开奖。',
+    'err_not_drawable' => '只有进行中或已售罄的抽奖才能开奖。',
+    'err_no_sold_nodes' => '还没有任何节点售出，无法开奖。',
 
     // 取消退款
     'cancel_btn' => '取消并退款',

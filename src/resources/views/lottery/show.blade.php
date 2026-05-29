@@ -31,6 +31,11 @@
                     <button type="button" class="btn btn-warning" id="draw-btn">
                         <i class="fas fa-dice"></i> {{ trans('calendar::lottery.draw_btn') }}
                     </button>
+                @elseif($lottery->status === 'open' && $sold_count > 0)
+                    {{-- 凑不满人时允许 FC 提前开奖（未售节点将作废） --}}
+                    <button type="button" class="btn btn-warning" id="draw-btn" data-early="1">
+                        <i class="fas fa-dice"></i> {{ trans('calendar::lottery.draw_early_btn') }}
+                    </button>
                 @endif
                 <button type="button" class="btn btn-outline-danger" id="cancel-btn">
                     <i class="fas fa-ban"></i> {{ trans('calendar::lottery.cancel_btn') }}
@@ -288,9 +293,13 @@
         })();
         @endif
 
-        @if($can_manage && $lottery->status === 'sold_out')
+        @if($can_manage && ($lottery->status === 'sold_out' || ($lottery->status === 'open' && $sold_count > 0)))
         $('#draw-btn').on('click', function () {
-            if (!confirm('{{ trans('calendar::lottery.draw_confirm') }}')) {
+            var isEarly = $(this).data('early') == 1;
+            var drawMsg = isEarly
+                ? '{{ trans('calendar::lottery.draw_early_confirm') }}'
+                : '{{ trans('calendar::lottery.draw_confirm') }}';
+            if (!confirm(drawMsg)) {
                 return;
             }
             var $btn = $(this).prop('disabled', true);
