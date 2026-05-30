@@ -10,6 +10,13 @@
             <small class="text-muted ml-2">{{ trans('calendar::paps.main_character_grouped') }}</small>
         </div>
         <div class="card-body">
+            <div class="callout callout-info d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h5 class="mb-0">{{ trans('calendar::paps.available_pap') }}</h5>
+                    <small class="text-muted">{{ trans('calendar::paps.available_pap_hint') }}</small>
+                </div>
+                <span class="h2 mb-0 {{ $availableBalance < 0 ? 'text-danger' : 'text-info' }}">{{ number_format($availableBalance, 2) }}</span>
+            </div>
             <div class="row mb-4">
                 <div class="col-md-6">
                     <div class="card card-info mb-0">
@@ -36,7 +43,7 @@
                     </div>
                 </div>
             </div>
-            <h4>{{ trans('calendar::paps.attendance_pap_trend') }}</h4>
+            <h4>{{ trans('calendar::paps.monthly_pap_trend') }}</h4>
             <div class="chart">
                 <canvas id="papPerMonth" height="150" width="1000"></canvas>
             </div>
@@ -69,26 +76,37 @@
     <script type="text/javascript">
         $(function () {
             let themeColor = rgb2hex($('.nav-pills .nav-link.active').css('backgroundColor'));
-            let monthlyData = [];
+            let attendanceData = [];
+            let consumedData = [];
 
             if (themeColor.substr(4) === rgb2hex($('.card').css('backgroundColor')).substr(4))
                 themeColor = '#000000';
 
             @foreach($monthlyPaps as $pap)
-            monthlyData.push({x: "{{ $pap->year }}-{{ $pap->month }}", y: {{ $pap->attendance }}});
+            attendanceData.push({x: "{{ $pap->year }}-{{ $pap->month }}", y: {{ $pap->attendance }}});
+            consumedData.push({x: "{{ $pap->year }}-{{ $pap->month }}", y: {{ $pap->consumed }}});
             @endforeach
 
             new Chart(document.getElementById('papPerMonth').getContext('2d'), {
                 type: 'line',
                 data: {
-                    datasets: [{
-                        label: '{{ trans('calendar::paps.attendance_pap') }}',
-                        data: monthlyData,
-                        borderColor: themeColor
-                    }]
+                    datasets: [
+                        {
+                            label: '{{ trans('calendar::paps.attendance_pap') }}',
+                            data: attendanceData,
+                            borderColor: themeColor,
+                            fill: false
+                        },
+                        {
+                            label: '{{ trans('calendar::paps.consumed_pap') }}',
+                            data: consumedData,
+                            borderColor: '#dc3545',
+                            fill: false
+                        }
+                    ]
                 },
                 options: {
-                    legend: {display: false},
+                    legend: {display: true},
                     scales: {
                         xAxes: [{
                             type: 'time',

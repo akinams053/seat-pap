@@ -212,12 +212,24 @@ class CorporationController extends Controller
             ]);
         }
 
+        // 累计可用余额：各主角色名下全部关联角色、起始日以来 SUM(value)（不分区间，跨军团聚合，
+        // 即真正可继续消费的余额，与 API / 抽奖口径一致）。仅用于导出列。
+        $balances = DB::table('kassie_calendar_paps')
+            ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
+            ->leftJoin('users as u', 'rt.user_id', '=', 'u.id')
+            ->where('kassie_calendar_paps.join_time', '>=', $startDate)
+            ->groupBy(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id)'))
+            ->select(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id) as cid'))
+            ->selectRaw('SUM(kassie_calendar_paps.value) as balance')
+            ->pluck('balance', 'cid');
+
         return response()->json($ranking->map(fn($item) => [
             'character_id' => $item->character_id,
             'name' => $item->character?->name ?? trans('web::seat.unknown'),
             'attendance_pap' => (float) $item->attendance_pap,
             'consumed_pap' => (float) $item->consumed_pap,
             'available_pap' => (float) $item->available_pap,
+            'available_balance' => (float) ($balances[$item->character_id] ?? 0),
             'qty' => (float) $item->qty,
         ])->values());
     }

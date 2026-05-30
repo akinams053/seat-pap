@@ -37,8 +37,10 @@ return [
     'attendance_pap' => '出勤 PAP',
     'consumed_pap' => '消费 PAP',
     'available_pap' => '当前可用 PAP',
+    'available_pap_hint' => '自起始日以来累计，可继续用于抽奖 / 商店消费',
     'net_pap' => '入账 PAP',
-    'attendance_pap_trend' => '每月出勤 PAP',
+    'monthly_pap_trend' => '每月出勤 / 消费 PAP',
+    'available_balance_col' => '累计可用余额',
 
     'all_months' => '全部月份',
     'export_btn' => '导出',

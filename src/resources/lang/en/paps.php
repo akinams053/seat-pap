@@ -37,8 +37,10 @@ return [
     'attendance_pap' => 'Attendance PAP',
     'consumed_pap' => 'Consumed PAP',
     'available_pap' => 'Available PAP',
+    'available_pap_hint' => 'Cumulative since the start date — spendable on lottery / shop',
     'net_pap' => 'Net PAP',
-    'attendance_pap_trend' => 'Monthly Attendance PAP',
+    'monthly_pap_trend' => 'Monthly Attendance / Consumed PAP',
+    'available_balance_col' => 'Available Balance',
 
     'all_months' => 'All Months',
     'export_btn' => 'Export',

@@ -55,6 +55,12 @@ class CharacterController extends Controller
             ['year', $today->year],
         ]);
 
+        // 累计可用 PAP：起始日以来全部关联角色 SUM(value)，即真正可继续消费的余额（不分区间）
+        $availableBalance = (float) DB::table('kassie_calendar_paps')
+            ->whereIn('character_id', $characterIds)
+            ->where('join_time', '>=', $startDate)
+            ->sum('value');
+
         // 荣誉榜按主角色聚合，按出勤 PAP 排（取消本周榜，只保留本月 / 本年）
         $monthlyRanking = $this->getGlobalGroupedRanking($startDate, [
             ['month', $today->month],
@@ -69,6 +75,7 @@ class CharacterController extends Controller
             'monthlyPaps' => $monthlyPaps,
             'thisMonth' => $thisMonth,
             'thisYear' => $thisYear,
+            'availableBalance' => $availableBalance,
             'monthlyRanking' => $monthlyRanking,
             'yearlyRanking' => $yearlyRanking,
             'character' => $character,

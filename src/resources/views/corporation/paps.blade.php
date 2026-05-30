@@ -337,12 +337,13 @@
                 let year = $('#rankingSettings').find('input[name="year"]').val();
                 let filename = 'pap_ranking_' + year + (month ? '_' + month : '') + '.csv';
 
-                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.attendance_pap') }},{{ trans('calendar::paps.consumed_pap') }},{{ trans('calendar::paps.net_pap') }}\n';
+                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.attendance_pap') }},{{ trans('calendar::paps.consumed_pap') }},{{ trans('calendar::paps.net_pap') }},{{ trans('calendar::paps.available_balance_col') }}\n';
                 $.each(currentRankingData, function (index, item) {
                     csv += (index + 1) + ',"' + (item.name || 'Unknown').replace(/"/g, '""') + '",' +
                         parseFloat(item.attendance_pap).toFixed(2) + ',' +
                         parseFloat(item.consumed_pap).toFixed(2) + ',' +
-                        parseFloat(item.available_pap).toFixed(2) + '\n';
+                        parseFloat(item.available_pap).toFixed(2) + ',' +
+                        parseFloat(item.available_balance).toFixed(2) + '\n';
                 });
 
                 let blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
