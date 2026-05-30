@@ -13,23 +13,23 @@
 - 用户按角色报名 operation（attending / not attending / maybe）
 - operation 标签管理（分类、排序、analytics 分轴、quantifier）
 
-### PAP 采集与统计
 - FC 通过 ESI 拉取当前 fleet 成员，一键生成 PAP
 - PAP 发放后自动更新舰队 MOTD，通知成员发放结果
 - **主角色聚合**：所有 alt 的 PAP 自动归并到 main character
-- 阶段 7 统计口径会逐步区分：
-  - **出勤 PAP**：普通行动最终认可贡献
+- **三口径统计**（完整版，阶段 7）：
+  - **出勤 PAP**：普通行动最终认可贡献（含审查惩罚负值）
   - **消费 PAP**：抽奖 / 商店等消费型扣减
-  - **当前可用 PAP**：剩余可继续消费的 PAP
+  - **当前可用 PAP**：剩余可继续消费的 PAP；出勤 − 消费 = 可用 恒等
+- **全局 PAP 起始日**（完整版）：设置页可配置（月初对齐），之前数据保留但不计入；个人页 / 军团页 / API / 抽奖余额统一以此为起点
 - 角色维度：
-  - 当月 / 当年 PAP 汇总卡片
-  - 每月参与趋势折线图
-  - 周 / 月 / 年排名榜（按主角色聚合）
+  - 顶部「当前可用 PAP（累计）」+ 当月 / 当年「出勤 / 消费 / 入账」breakdown
+  - 每月出勤 / 消费 PAP 双线趋势图
+  - 本月 / 本年荣誉榜（按出勤 PAP 排，主角色聚合）
 - 军团维度：
-  - 月度参与趋势折线图（可按年份筛选）
-  - PAP 类型分布饼图 — 月度（可按年月筛选）
-  - PAP 类型分布饼图 — 年度（可按年份筛选）
-  - 排名榜（可按年月筛选，支持导出 Excel）
+  - 月度出勤 PAP 趋势折线图（可按年份筛选）
+  - 出勤 PAP 类型分布饼图（可选某月或全部月份）
+  - 军团消费 PAP 汇总（可按月 / 按年，含按抽奖明细）
+  - 排名榜（按出勤 PAP 排，可按年月筛选；导出 Excel 含出勤 / 消费 / 入账 / 累计可用余额）
 
 ### PAP API
 - 提供 REST API 供外部服务（如 PAP 商店）查询主角色聚合后的当前可用 PAP
@@ -81,19 +81,31 @@
 - [`docs/03-近期计划.md`](docs/03-近期计划.md)：阶段 7 落地步骤与宿主验证清单。
 - [`docs/04-交接说明.md`](docs/04-交接说明.md)：当前状态、关键提交、测试服约定与待办。
 
+## 分支说明
+
+本仓库通过 Packagist 安装，需用「版本约束」明确指定分支。当前有两个相关分支：
+
+| 分支 | Composer 版本约束 | 内容 |
+|---|---|---|
+| `localization` | `dev-localization` | 基础版（默认分支）：operation / PAP 采集 / 行动审查 / 角色·军团统计 / 商店 API / MOTD。**尚不含** PAP 超网抽奖与阶段 7 三口径统计。 |
+| `docs/pap-hypernet-lottery-plan` | `dev-docs/pap-hypernet-lottery-plan` | 完整版：在基础版之上增加 **PAP 超网抽奖**、**出勤 / 消费 / 当前可用三口径统计**、**全局可配置 PAP 起始日**。功能已在测试服验证。 |
+
+> 截至目前，完整功能仍在 `docs/pap-hypernet-lottery-plan` 分支，**尚未合并回默认分支 `localization`**。两者合并后，`dev-localization` 即包含全部功能。
+>
+> Packagist 页面：https://packagist.org/packages/akinams053/seat-pap
+
 ## 安装
 
-当前开发分支为 `localization`，需要指定版本安装。
-
-Packagist 页面：https://packagist.org/packages/akinams053/seat-pap#dev-localization
-
-在 **SeAT 根目录**（默认 `/var/www/seat`）执行：
+在 **SeAT 根目录**（默认 `/var/www/seat`）执行，按需选择分支的版本约束：
 
 ```bash
 cd /var/www/seat
 
 # 安装插件（需要 sudo 以写入 vendor 目录）
-sudo composer require akinams053/seat-pap:dev-localization
+# 完整版（推荐，含抽奖与阶段 7 统计）：
+sudo composer require akinams053/seat-pap:dev-docs/pap-hypernet-lottery-plan
+# 或基础版：
+# sudo composer require akinams053/seat-pap:dev-localization
 
 # 发布静态资源（CSS/JS）
 sudo php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
@@ -111,22 +123,36 @@ php artisan cache:clear
 
 ## 更新
 
+更新会拉取**当前已安装分支**的最新提交：
+
 ```bash
 cd /var/www/seat
 
-# 拉取最新版本
-sudo composer update akinams053/seat-pap
+# 拉取最新提交
+sudo composer update akinams053/seat-pap --no-cache
 
-# 重新发布静态资源
+# 重新发布静态资源（仅当本次更新含 CSS/JS 改动时需要）
 sudo php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
 
-# 执行新增迁移（如有）
+# 执行新增迁移（仅当本次更新含 migration 时需要）
 php artisan migrate
 
-# 清除缓存
-php artisan view:clear
-php artisan route:clear
-php artisan cache:clear
+# 清除缓存（建议以 www-data 身份执行）
+sudo -u www-data php artisan view:clear
+sudo -u www-data php artisan route:clear
+sudo -u www-data php artisan cache:clear
+```
+
+## 切换分支版本
+
+要把已安装的版本从一个分支切到另一个（例如基础版 → 完整版），用目标分支的版本约束重新 `require`：
+
+```bash
+cd /var/www/seat
+sudo composer require akinams053/seat-pap:dev-docs/pap-hypernet-lottery-plan --no-cache
+php artisan migrate
+sudo -u www-data php artisan view:clear
+sudo -u www-data php artisan route:clear
 ```
 
 ## 使用说明
