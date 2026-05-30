@@ -192,7 +192,7 @@ return [
     'pap_start_description' => 'Set the global PAP statistics start date. PAP before this date is kept but excluded from all statistics, rankings and lottery / shop spending; PAP on or after it counts normally. Character pages, corporation pages, the shop API and lottery balance all use this as the start point.',
     'pap_start_label' => 'Start Month',
     'pap_start_hint' => 'Month precision only; takes effect from 00:00 on the 1st of the selected month.',
-    'pap_start_warning' => 'Do not move the start date forward past existing lottery spending: it would cut off the matching attendance source and make some members\' available PAP go negative out of nowhere.',
+    'pap_start_warning' => 'Reset PAP: set the start month to the current month or later — old data is kept but no longer counted, so everyone restarts from the new start month. The only thing to avoid is setting it back to a past month that already contains lottery spending, which keeps the spending but cuts off its matching attendance income and makes some members\' available PAP go negative.',
     'pap_start_date_saved' => 'PAP statistics start date saved.',
     'pap_start_date_invalid' => 'Invalid start date format.',
 ];
