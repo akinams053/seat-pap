@@ -273,7 +273,7 @@ function verifyJwt(token, secret) {
 
 ## 第四部分：PAP 查询 API
 
-商店需要查询用户的 PAP 余额时，调用以下接口。
+商店需要查询用户的 PAP 余额时，调用以下接口。这里的余额语义是「当前可用 PAP」，也就是成员当前还能继续用于抽奖 / 商店消费的 PAP。
 
 ### 认证方式
 
@@ -325,7 +325,7 @@ GET https://seat.example.com/api/calendar/paps/{character_id}?since=2026-03-01
 |------|------|
 | `character_id` | 主角色 ID（已自动解析） |
 | `user_id` | SeAT user_id（与 JWT 中的 `sub` 一致） |
-| `total_pap` | `since` 日期起所有 alt 的 PAP 合计 |
+| `total_pap` | `since` 日期起所有 alt 的当前可用 PAP；当前实现按 `SUM(paps.value)` 聚合后做非负兜底 |
 | `since` | 实际使用的起始日期（方便确认） |
 | `sync_at` | 查询时间 |
 
@@ -385,20 +385,22 @@ GET https://seat.example.com/api/calendar/paps?characters=2118151113,2118151114&
 
 1. 通过 `refresh_tokens` 表找到该角色所属的 SeAT 用户
 2. 获取该用户下所有关联角色（主角色 + 全部 alt）
-3. 对 `kassie_calendar_paps` 表中这些角色在 `since` 日期（默认 2026-01-01）之后的 PAP 值求和
-4. 返回主角色 ID 和聚合后的总数
+3. 对 `kassie_calendar_paps` 表中这些角色在 `since` 日期（默认 2026-01-01）之后的 `value` 求和，得到当前可用 PAP 的内部净值
+4. 返回主角色 ID 和聚合后的可消费额度
 
 ```
 用户有 A（主）、B、C 三个角色
 查询 A、B 或 C 中任意一个，返回结果完全相同：
   character_id = A
-  total_pap = PAP(A) + PAP(B) + PAP(C)
+  total_pap = 当前可用 PAP(A + B + C)
 ```
 
-> **关于 `total_pap` 的语义**：返回值已经包含 FC 在「行动审查」中做的所有奖励 / 扣除调整。
-> SeAT 侧每次 FC 完成奖惩，对应行动+成员的 `paps.value` 会被实时回写为「基础值 + Σ调整」。
+> **关于 `total_pap` 的语义**：`total_pap` 是对外可消费额度，阶段 7 业务口径中对应「当前可用 PAP」。
+> SeAT 侧每次 FC 完成奖惩、抽奖购买扣费或取消退款，对应行动+成员的 `paps.value` 会被实时回写为「基础值 + Σ调整」。
 > 商店端无需关心调整记录，定期同步 `total_pap` 即可获得最新余额。
-> 如果某成员被扣到负数，API 已用 `max(0, total_pap)` 兜底，商店端不会收到负值。
+> 如果某成员内部当前可用 PAP 被扣到负数，API 已用 `max(0, available_pap)` 兜底，商店端不会收到负值。
+>
+> 阶段 7 如需增强 API，可在保持 `total_pap` 兼容的前提下新增可选 breakdown 字段：`attendance_pap`（出勤 PAP）、`consumed_pap`（消费 PAP）、`available_pap`（当前可用 PAP）。默认响应在未实现前仍只承诺 `total_pap`。
 
 ---
 
