@@ -1,6 +1,13 @@
 @php
     $limit = $limit ?? 15;
-    $maxQty = $ranking->max('qty') ?: 1;
+    $maxQty = (float) $ranking->max('qty');
+    $progressWidth = static function ($qty) use ($maxQty): int {
+        if ($maxQty <= 0) {
+            return 0;
+        }
+
+        return (int) max(0, min(100, round(((float) $qty / $maxQty) * 100)));
+    };
 @endphp
 <table class="table table-hover mb-0">
     <thead>
@@ -31,7 +38,7 @@
                 <div class="d-flex align-items-center">
                     <div class="progress flex-grow-1 mr-2" style="height: 16px;">
                         <div class="progress-bar bg-info" role="progressbar"
-                             style="width: {{ round($pap->qty / $maxQty * 100) }}%"></div>
+                             style="width: {{ $progressWidth($pap->qty) }}%"></div>
                     </div>
                     <strong>{{ $pap->qty }}</strong>
                 </div>
@@ -64,7 +71,7 @@
                     <div class="d-flex align-items-center">
                         <div class="progress flex-grow-1 mr-2" style="height: 16px;">
                             <div class="progress-bar bg-info" role="progressbar"
-                                 style="width: {{ round($myEntry->qty / $maxQty * 100) }}%"></div>
+                                 style="width: {{ $progressWidth($myEntry->qty) }}%"></div>
                         </div>
                         <strong>{{ $myEntry->qty }}</strong>
                     </div>
