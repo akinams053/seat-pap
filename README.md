@@ -76,10 +76,10 @@
 
 更多指南和功能设计文档见 [`docs/README.md`](docs/README.md)：
 
-- [`docs/FC指南.md`](docs/FC指南.md)：FC / 管理人员日常操作说明。
-- [`docs/PAP商店对接指南.md`](docs/PAP商店对接指南.md)：PAP 商店 JWT 跳转与 API 对接协议。
-- [`docs/PAP超网抽奖功能计划.md`](docs/PAP超网抽奖功能计划.md)：PAP 超网抽奖模块设计草案。
-- [`docs/PAP统计口径调整计划.md`](docs/PAP统计口径调整计划.md)：阶段 7 出勤 PAP / 消费 PAP / 当前可用 PAP 统计语义设计。
+- [`docs/01-项目说明.md`](docs/01-项目说明.md)：项目能力、FC 操作指南、PAP 商店对接协议。
+- [`docs/02-整体计划.md`](docs/02-整体计划.md)：抽奖整体设计与阶段 7 统计口径设计 / 决策。
+- [`docs/03-近期计划.md`](docs/03-近期计划.md)：阶段 7 落地步骤与宿主验证清单。
+- [`docs/04-交接说明.md`](docs/04-交接说明.md)：当前状态、关键提交、测试服约定与待办。
 
 ## 安装
 
