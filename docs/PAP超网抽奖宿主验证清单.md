@@ -77,8 +77,9 @@ SELECT * FROM kassie_calendar_pap_adjustments WHERE operation_id = :op_id ORDER 
   - 阶段 4.4：提前开奖（`draw_mode = early`、未售节点 `voided_at`）（2026-05-30 用户反馈已验证）
   - 阶段 5：取消退款（2026-05-30 用户反馈已验证）
   - 阶段 6 部分验证：旧普通行动执行整行动 PAP 清零后，个人 PAP 页面曾触发 `DivisionByZeroError`，已通过 `c7655e8` 修复并由用户确认恢复。
+  - 阶段 6 只读/控制器回归复核（2026-05-30）：审查列表 JSON、抽奖成员明细 JSON、普通清零结果、未终态抽奖清零拒绝、零值排行榜局部视图均已复核通过，详见下方记录。
 - **待继续实测**：
-  - 阶段 6 行动审查友好化完整回归：抽奖徽标、单 PAP 展示、抽奖详情跳转、adjustments 流水、未终态 lottery action 清零拒绝路径。
+  - 阶段 6 仅剩浏览器 UI 目视确认项：抽奖徽标实际渲染、单 PAP 列 `—`、抽奖详情跳转链接可点击、负数总额时“消费 PAP”文案显示。现有测试服抽奖样本已退款/清零，暂无负数 lottery 汇总样本。
 
 ### 本轮只读复核（2026-05-30）
 
@@ -112,6 +113,26 @@ Controller: CharacterController@paps
 修复：`c7655e8 fix: 防止 PAP 排名进度条除零`，当最大 PAP `<= 0` 时进度条宽度返回 `0`，正数时才做除法，并限制在 `0–100`。
 
 部署与验证：测试服已通过 `composer update akinams053/seat-pap --no-cache` 更新到 `c7655e8`，并执行 `php artisan view:clear`；用户随后确认个人 PAP 页面恢复。
+
+### 阶段 6 回归：审查友好化与清零限制复核（2026-05-30）
+
+本轮通过 `seat-ssh` 连接 `test`，以只读查询和 Laravel 控制器调用为主，未执行迁移、部署、重启或写库型清零操作。
+
+已确认：
+
+- 测试服仍安装 `akinams053/seat-pap dev-docs/pap-hypernet-lottery-plan`，source commit 为 `c7655e89860d882c48453aba85b7396aa0565375`。
+- 以测试用户 `id=120` / main character `2118151113` 登录上下文调用 `AuditController::operationsJson()`，返回 `recordsTotal = 6`，其中抽奖行动 `operation_id IN (182,183,184)` 均返回 `is_lottery = true`、`lottery_id` 非空、`can_audit = true`。
+- `AuditController::membersJson(184)` 返回 `is_lottery = true`、`lottery_id = 3`、`analytics = lottery`，成员明细中 `ship_type_id = 0` 时 `ship_name = —`，adjustments 同时包含购买扣费与「审查整行动清零」流水。
+- 普通行动 `operation_id = 172` 已存在一次整行动清零结果：3 条「审查整行动清零」反向 adjustment，且该 action 下 3 个成员的 `paps.value` 均为 `0.00`。
+- 未终态抽奖 `operation_id = 185` / `lottery_id = 4` 当前 `status = open`。调用 `AuditController::zero(185)` 返回 HTTP `422`，message 为“still open or sold out waiting for draw; zeroing ... is not allowed yet”，验证未终态 lottery action 清零拒绝路径生效。
+- 直接渲染 `calendar::common.includes.ranking_table` 的零值排行榜局部视图，`qty = "0.00"` 时成功渲染并输出 `width: 0%`，未再触发除零。
+
+仍建议由浏览器目视确认：
+
+- `/calendar/audit` 表格中抽奖徽标实际样式；
+- 抽奖行动「单 PAP」列是否显示 `—`；
+- 成员明细 modal 中「查看抽奖详情」按钮是否可点击并跳转正确；
+- 后续如新建一个未清零、未退款的负数 lottery 样本，再确认总额列显示“消费 PAP xx”。
 
 ## 测试服连接约定
 
