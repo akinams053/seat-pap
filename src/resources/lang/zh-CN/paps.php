@@ -6,14 +6,12 @@ return [
 
     'hall_of_fame_header' => '荣誉榜',
 
-    'this_week_header' => '本周',
     'this_month_header' => '本月',
     'this_year_header' => '本年',
 
     'character_header' => '角色',
     'paps_header' => 'PAP 数',
 
-    'first_week_paps' => '成为本周第一个获得 PAP 的人！',
     'first_month_paps' => '成为本月第一个获得 PAP 的人！',
     'first_year_paps' => '成为本年第一个获得 PAP 的人！',
 
@@ -24,14 +22,11 @@ return [
 
     'ranking_header' => '排名',
 
-    'no_paps_this_week' => '本周暂无 PAP 数据。',
     'no_paps_this_month' => '本月暂无 PAP 数据。',
     'no_paps_this_year' => '本年暂无 PAP 数据。',
 
     'monthly_trend_header' => '月度参与趋势',
     'type_distribution_header' => '出勤 PAP 类型分布',
-    'type_dist_month_header' => '出勤 PAP 类型分布（月度）',
-    'type_dist_year_header' => '出勤 PAP 类型分布（年度）',
     'consumed_distribution_header' => '军团消费 PAP',
     'main_character_grouped' => '已按主角色聚合',
     'no_data' => '暂无数据。',
@@ -42,6 +37,7 @@ return [
     'attendance_pap' => '出勤 PAP',
     'consumed_pap' => '消费 PAP',
     'available_pap' => '当前可用 PAP',
+    'net_pap' => '入账 PAP',
     'attendance_pap_trend' => '每月出勤 PAP',
 
     'all_months' => '全部月份',

@@ -119,7 +119,7 @@
                     <th>{{ trans('calendar::paps.character_header') }}</th>
                     <th style="width: 200px;">{{ trans('calendar::paps.attendance_pap') }}</th>
                     <th style="width: 110px;" class="text-right">{{ trans('calendar::paps.consumed_pap') }}</th>
-                    <th style="width: 110px;" class="text-right">{{ trans('calendar::paps.available_pap') }}</th>
+                    <th style="width: 110px;" class="text-right">{{ trans('calendar::paps.net_pap') }}</th>
                 </tr>
                 </thead>
                 <tbody></tbody>
@@ -337,7 +337,7 @@
                 let year = $('#rankingSettings').find('input[name="year"]').val();
                 let filename = 'pap_ranking_' + year + (month ? '_' + month : '') + '.csv';
 
-                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.attendance_pap') }},{{ trans('calendar::paps.consumed_pap') }},{{ trans('calendar::paps.available_pap') }}\n';
+                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.attendance_pap') }},{{ trans('calendar::paps.consumed_pap') }},{{ trans('calendar::paps.net_pap') }}\n';
                 $.each(currentRankingData, function (index, item) {
                     csv += (index + 1) + ',"' + (item.name || 'Unknown').replace(/"/g, '""') + '",' +
                         parseFloat(item.attendance_pap).toFixed(2) + ',' +

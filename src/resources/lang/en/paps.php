@@ -6,14 +6,12 @@ return [
 
     'hall_of_fame_header' => 'Hall of Fame',
 
-    'this_week_header' => 'This Week',
     'this_month_header' => 'This Month',
     'this_year_header' => 'This Year',
 
     'character_header' => 'Character',
     'paps_header' => 'Paps',
 
-    'first_week_paps' => 'Be the first to be PAP this week !',
     'first_month_paps' => 'Be the first to be PAP this month !',
     'first_year_paps' => 'Be the first to be PAP this year !',
 
@@ -24,14 +22,11 @@ return [
 
     'ranking_header' => 'Ranking',
 
-    'no_paps_this_week' => 'There are no paps for the current week.',
     'no_paps_this_month' => 'There no paps for the current month.',
     'no_paps_this_year' => 'There no paps for the current year.',
 
     'monthly_trend_header' => 'Monthly Trend',
     'type_distribution_header' => 'Attendance PAP Type Distribution',
-    'type_dist_month_header' => 'Attendance PAP Type Distribution (Monthly)',
-    'type_dist_year_header' => 'Attendance PAP Type Distribution (Yearly)',
     'consumed_distribution_header' => 'Corporation Consumed PAP',
     'main_character_grouped' => 'Grouped by main character',
     'no_data' => 'No data available.',
@@ -42,6 +37,7 @@ return [
     'attendance_pap' => 'Attendance PAP',
     'consumed_pap' => 'Consumed PAP',
     'available_pap' => 'Available PAP',
+    'net_pap' => 'Net PAP',
     'attendance_pap_trend' => 'Monthly Attendance PAP',
 
     'all_months' => 'All Months',
