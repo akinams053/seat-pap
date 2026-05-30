@@ -26,15 +26,16 @@
         </div>
     </div>
 
-    {{-- Type Distribution --}}
+    {{-- 出勤 PAP 类型分布（可选某月或全部月份=年度） + 军团消费 PAP --}}
     <div class="row">
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">{{ trans('calendar::paps.type_dist_month_header') }}</h3>
+                    <h3 class="card-title">{{ trans('calendar::paps.type_distribution_header') }}</h3>
                     <div class="card-tools">
-                        <div class="input-group input-group-sm" style="width: 200px;" id="monthDistSettings">
+                        <div class="input-group input-group-sm" style="width: 220px;" id="typeDistSettings">
                             <select name="month" class="form-control">
+                                <option value="">-- {{ trans('calendar::paps.all_months') }} --</option>
                                 @for($i = 1; $i <= 12; $i++)
                                     <option value="{{ $i }}" @if($i == carbon()->month) selected @endif>{{ $i }}</option>
                                 @endfor
@@ -47,17 +48,23 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <canvas id="monthTypeDistChart"></canvas>
-                    <p class="text-center text-muted d-none" id="monthDistEmpty">{{ trans('calendar::paps.no_data') }}</p>
+                    <canvas id="typeDistChart"></canvas>
+                    <p class="text-center text-muted d-none" id="typeDistEmpty">{{ trans('calendar::paps.no_data') }}</p>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">{{ trans('calendar::paps.type_dist_year_header') }}</h3>
+                    <h3 class="card-title">{{ trans('calendar::paps.consumed_distribution_header') }}</h3>
                     <div class="card-tools">
-                        <div class="input-group input-group-sm" style="width: 120px;" id="yearDistSettings">
+                        <div class="input-group input-group-sm" style="width: 220px;" id="consumedSettings">
+                            <select name="month" class="form-control">
+                                <option value="">-- {{ trans('calendar::paps.all_months') }} --</option>
+                                @for($i = 1; $i <= 12; $i++)
+                                    <option value="{{ $i }}" @if($i == carbon()->month) selected @endif>{{ $i }}</option>
+                                @endfor
+                            </select>
                             <input type="text" name="year" class="form-control" value="{{ carbon()->year }}"/>
                             <span class="input-group-append">
                                 <button type="button" class="btn btn-info btn-flat btn-sm">{{ trans('calendar::paps.display_btn') }}</button>
@@ -66,8 +73,14 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <canvas id="yearTypeDistChart"></canvas>
-                    <p class="text-center text-muted d-none" id="yearDistEmpty">{{ trans('calendar::paps.no_data') }}</p>
+                    <div class="text-center mb-3">
+                        <div class="text-muted small">{{ trans('calendar::paps.consumed_pap') }}</div>
+                        <div class="display-4" id="consumedTotal">0.00</div>
+                    </div>
+                    <table class="table table-sm mb-0" id="consumedTable">
+                        <tbody></tbody>
+                    </table>
+                    <p class="text-center text-muted d-none" id="consumedEmpty">{{ trans('calendar::paps.no_data') }}</p>
                 </div>
             </div>
         </div>
@@ -212,24 +225,49 @@
                 });
             }
 
-            let monthDistRef = {chart: null};
-            let yearDistRef = {chart: null};
+            let typeDistRef = {chart: null};
             let typeDistUrl = '{{ route('corporation.ajax.paps.type-distribution', request()->route('corporation')) }}';
 
-            $('#monthDistSettings').find('button').on('click', function () {
-                loadTypeDistribution('monthTypeDistChart', 'monthDistEmpty', typeDistUrl, {
-                    year: $('#monthDistSettings').find('input[name="year"]').val(),
-                    month: $('#monthDistSettings').find('select[name="month"]').val()
-                }, monthDistRef);
-            });
-            $('#monthDistSettings').find('button').click();
+            // 类型分布：选某月则按月，选「全部月份」则按整年
+            function loadTypeDist() {
+                let month = $('#typeDistSettings').find('select[name="month"]').val();
+                let params = {year: $('#typeDistSettings').find('input[name="year"]').val()};
+                if (month) params.month = month;
+                loadTypeDistribution('typeDistChart', 'typeDistEmpty', typeDistUrl, params, typeDistRef);
+            }
+            $('#typeDistSettings').find('button').on('click', loadTypeDist);
+            loadTypeDist();
 
-            $('#yearDistSettings').find('button').on('click', function () {
-                loadTypeDistribution('yearTypeDistChart', 'yearDistEmpty', typeDistUrl, {
-                    year: $('#yearDistSettings').find('input[name="year"]').val()
-                }, yearDistRef);
-            });
-            $('#yearDistSettings').find('button').click();
+            // --- 军团消费 PAP（同样可选某月或全部月份=年度） ---
+            let consumedUrl = '{{ route('corporation.ajax.paps.consumed', request()->route('corporation')) }}';
+
+            function loadConsumed() {
+                let month = $('#consumedSettings').find('select[name="month"]').val();
+                let params = {year: $('#consumedSettings').find('input[name="year"]').val()};
+                if (month) params.month = month;
+                $.ajax({
+                    url: consumedUrl,
+                    data: params,
+                    success: function (data) {
+                        $('#consumedTotal').text(parseFloat(data.total).toFixed(2));
+                        let tbody = $('#consumedTable tbody');
+                        tbody.empty();
+                        if (!data.items || data.items.length < 1) {
+                            $('#consumedEmpty').removeClass('d-none');
+                            return;
+                        }
+                        $('#consumedEmpty').addClass('d-none');
+                        $.each(data.items, function (i, item) {
+                            let tr = $('<tr>');
+                            tr.append($('<td>').text(item.title || ''));
+                            tr.append($('<td class="text-right">').text(parseFloat(item.consumed).toFixed(2)));
+                            tbody.append(tr);
+                        });
+                    }
+                });
+            }
+            $('#consumedSettings').find('button').on('click', loadConsumed);
+            loadConsumed();
 
             // --- Rankings ---
             let rankingUrl = '{{ route('corporation.ajax.paps.ranking', request()->route('corporation')) }}';

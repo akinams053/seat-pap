@@ -32,6 +32,7 @@ return [
     'type_distribution_header' => '出勤 PAP 类型分布',
     'type_dist_month_header' => '出勤 PAP 类型分布（月度）',
     'type_dist_year_header' => '出勤 PAP 类型分布（年度）',
+    'consumed_distribution_header' => '军团消费 PAP',
     'main_character_grouped' => '已按主角色聚合',
     'no_data' => '暂无数据。',
 

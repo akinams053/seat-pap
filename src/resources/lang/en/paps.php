@@ -32,6 +32,7 @@ return [
     'type_distribution_header' => 'Attendance PAP Type Distribution',
     'type_dist_month_header' => 'Attendance PAP Type Distribution (Monthly)',
     'type_dist_year_header' => 'Attendance PAP Type Distribution (Yearly)',
+    'consumed_distribution_header' => 'Corporation Consumed PAP',
     'main_character_grouped' => 'Grouped by main character',
     'no_data' => 'No data available.',
 

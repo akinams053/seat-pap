@@ -65,6 +65,12 @@ Route::group([
         'middleware' => 'can:corporation.kassie_calendar_paps,corporation',
     ]);
 
+    Route::get('/{corporation}/paps/json/consumed', [
+        'as' => 'corporation.ajax.paps.consumed',
+        'uses' => 'CorporationController@getConsumedJson',
+        'middleware' => 'can:corporation.kassie_calendar_paps,corporation',
+    ]);
+
 });
 
 Route::group([

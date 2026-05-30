@@ -156,6 +156,45 @@ class CorporationController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * 军团消费 PAP（抽奖等消耗）按所选时间范围汇总。
+     * 返回当前净消费总额 + 按抽奖明细（已退款净额为 0 的不列出）。
+     */
+    public function getConsumedJson(int $corporation_id): JsonResponse
+    {
+        $year = (int)(request()->query('year') ?? carbon()->year);
+        $month = request()->query('month') ? (int)request()->query('month') : null;
+        $startDate = Pap::statisticsStartDate();
+
+        $query = DB::table('kassie_calendar_paps as p')
+            ->join('character_affiliations as ca', 'p.character_id', '=', 'ca.character_id')
+            ->join('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'p.operation_id')
+            ->where('ca.corporation_id', $corporation_id)
+            ->where('p.year', $year)
+            ->where('p.join_time', '>=', $startDate);
+
+        if ($month !== null) {
+            $query->where('p.month', $month);
+        }
+
+        $items = $query
+            ->groupBy('l.id', 'l.title')
+            ->selectRaw('l.title')
+            ->selectRaw('SUM(-p.value) as consumed')
+            ->havingRaw('SUM(-p.value) <> 0')
+            ->orderByRaw('SUM(-p.value) DESC')
+            ->get()
+            ->map(fn($item) => [
+                'title' => $item->title,
+                'consumed' => (float) $item->consumed,
+            ]);
+
+        return response()->json([
+            'total' => (float) $items->sum('consumed'),
+            'items' => $items->values(),
+        ]);
+    }
+
     public function getRankingJson(int $corporation_id): JsonResponse
     {
         $year = (int)(request()->query('year') ?? carbon()->year);
