@@ -57,11 +57,15 @@ class SettingController extends Controller
         $apiToken = setting('kassie.calendar.api_token', true) ?: '';
         $shopUrl = setting('kassie.calendar.shop_url', true) ?: '';
 
+        // 全局 PAP 起始日（月初对齐），<input type="month"> 用 Y-m 格式
+        $papStartMonth = carbon(setting('kassie.calendar.pap_start_date', true) ?: '2026-01-01')->format('Y-m');
+
         return view('calendar::setting.index', [
             'tags' => $tags,
             'motd' => $motd,
             'apiToken' => $apiToken,
             'shopUrl' => $shopUrl,
+            'papStartMonth' => $papStartMonth,
         ]);
     }
 
@@ -112,6 +116,31 @@ class SettingController extends Controller
         setting(['kassie.calendar.shop_url', $url], true);
 
         return redirect()->back()->with('success', trans('calendar::seat.shop_url_saved'));
+    }
+
+    public function updatePapStartDate(Request $request): RedirectResponse
+    {
+        $input = trim($request->input('pap_start_date', ''));
+
+        if ($input === '') {
+            return redirect()->back()->with('error', trans('calendar::seat.pap_start_date_invalid'));
+        }
+
+        // <input type="month"> 提交 YYYY-MM，补成完整日期再解析，避免 carbon 对 'YYYY-MM' 的歧义解析
+        if (preg_match('/^\d{4}-\d{2}$/', $input)) {
+            $input .= '-01';
+        }
+
+        try {
+            // 强制月初对齐（计划 §12.3）
+            $date = carbon($input)->startOfMonth();
+        } catch (\Exception) {
+            return redirect()->back()->with('error', trans('calendar::seat.pap_start_date_invalid'));
+        }
+
+        setting(['kassie.calendar.pap_start_date', $date->toDateString()], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.pap_start_date_saved'));
     }
 
     public function shopRedirect(): RedirectResponse

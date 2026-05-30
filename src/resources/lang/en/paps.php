@@ -38,6 +38,11 @@ return [
     'this_month_paps' => 'This Month PAPs',
     'this_year_paps' => 'This Year PAPs',
 
+    'attendance_pap' => 'Attendance PAP',
+    'consumed_pap' => 'Consumed PAP',
+    'available_pap' => 'Available PAP',
+    'attendance_pap_trend' => 'Monthly Attendance PAP',
+
     'all_months' => 'All Months',
     'export_btn' => 'Export',
     'rank_label' => 'Rank',

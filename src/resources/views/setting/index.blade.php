@@ -15,6 +15,8 @@
     @include('calendar::setting.includes.api_token')
 
     @include('calendar::setting.includes.shop_url')
+
+    @include('calendar::setting.includes.pap_start_date')
 @stop
 
 @push('head')

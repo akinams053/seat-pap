@@ -12,25 +12,31 @@
         <div class="card-body">
             <div class="row mb-4">
                 <div class="col-md-6">
-                    <div class="info-box bg-info">
-                        <span class="info-box-icon"><i class="fas fa-calendar"></i></span>
-                        <div class="info-box-content">
-                            <span class="info-box-text">{{ trans('calendar::paps.this_month_paps') }}</span>
-                            <span class="info-box-number">{{ $thisMonthPaps }}</span>
+                    <div class="card card-info mb-0">
+                        <div class="card-header py-2">
+                            <h3 class="card-title">
+                                <i class="fas fa-calendar"></i> {{ trans('calendar::paps.this_month_paps') }}
+                            </h3>
+                        </div>
+                        <div class="card-body p-3">
+                            @include('calendar::character.includes.pap_breakdown', ['data' => $thisMonth])
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="info-box bg-success">
-                        <span class="info-box-icon"><i class="fas fa-chart-bar"></i></span>
-                        <div class="info-box-content">
-                            <span class="info-box-text">{{ trans('calendar::paps.this_year_paps') }}</span>
-                            <span class="info-box-number">{{ $thisYearPaps }}</span>
+                    <div class="card card-success mb-0">
+                        <div class="card-header py-2">
+                            <h3 class="card-title">
+                                <i class="fas fa-chart-bar"></i> {{ trans('calendar::paps.this_year_paps') }}
+                            </h3>
+                        </div>
+                        <div class="card-body p-3">
+                            @include('calendar::character.includes.pap_breakdown', ['data' => $thisYear])
                         </div>
                     </div>
                 </div>
             </div>
-            <h4>{{ trans('calendar::paps.my_paps_per_month') }}</h4>
+            <h4>{{ trans('calendar::paps.attendance_pap_trend') }}</h4>
             <div class="chart">
                 <canvas id="papPerMonth" height="150" width="1000"></canvas>
             </div>
@@ -75,14 +81,14 @@
                 themeColor = '#000000';
 
             @foreach($monthlyPaps as $pap)
-            monthlyData.push({x: "{{ $pap->year }}-{{ $pap->month }}", y: {{ $pap->qty }}});
+            monthlyData.push({x: "{{ $pap->year }}-{{ $pap->month }}", y: {{ $pap->attendance }}});
             @endforeach
 
             new Chart(document.getElementById('papPerMonth').getContext('2d'), {
                 type: 'line',
                 data: {
                     datasets: [{
-                        label: '# participation',
+                        label: '{{ trans('calendar::paps.attendance_pap') }}',
                         data: monthlyData,
                         borderColor: themeColor
                     }]
@@ -99,7 +105,7 @@
                             },
                             scaleLabel: {display: true, labelString: 'Timeline'}
                         }],
-                        yAxes: [{ticks: {min: 0, stepSize: 1}}]
+                        yAxes: [{ticks: {stepSize: 1}}]
                     }
                 }
             });

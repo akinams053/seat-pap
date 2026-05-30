@@ -24,11 +24,6 @@ use Seat\Web\Models\User;
  */
 class LotteryController extends Controller
 {
-    /**
-     * 可用 PAP 固定起始日（与现有 PAP 统计 / 商店 API 口径一致，见计划 §5.1）
-     */
-    private const PAP_SINCE = '2026-01-01';
-
     public function __construct()
     {
         $this->middleware('can:calendar.view')->only(['index', 'show', 'snapshot', 'purchase']);
@@ -275,7 +270,7 @@ class LotteryController extends Controller
             $totalPrice = round((float) $model->node_price * $quantity, 2);
             $available = (float) DB::table('kassie_calendar_paps')
                 ->whereIn('character_id', $charIds)
-                ->where('join_time', '>=', self::PAP_SINCE)
+                ->where('join_time', '>=', Pap::statisticsStartDate())
                 ->sum('value');
             if ($available < $totalPrice) {
                 return ['error' => trans('calendar::lottery.err_insufficient_pap', [
@@ -641,14 +636,14 @@ class LotteryController extends Controller
     }
 
     /**
-     * 抽奖可用 PAP：复用现有统计口径（join_time >= 起始日、按 alt 聚合），
+     * 抽奖可用 PAP：复用现有统计口径（join_time >= 全局起始日、按 alt 聚合），
      * 但不 floor 到 0——透支必须照实表达（§11.6）。
      */
     private function availablePap(User $user): float
     {
         return (float) DB::table('kassie_calendar_paps')
             ->whereIn('character_id', $user->associatedCharacterIds())
-            ->where('join_time', '>=', self::PAP_SINCE)
+            ->where('join_time', '>=', Pap::statisticsStartDate())
             ->sum('value');
     }
 

@@ -278,6 +278,11 @@ Route::group([
             'uses' => 'SettingController@updateShopUrl',
         ]);
 
+        Route::post('pap-start-date', [
+            'as' => 'setting.pap_start_date.update',
+            'uses' => 'SettingController@updatePapStartDate',
+        ]);
+
         Route::group([
             'prefix' => 'tag'
         ], function (): void {

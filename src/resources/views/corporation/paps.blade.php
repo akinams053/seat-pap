@@ -104,7 +104,9 @@
                 <tr>
                     <th style="width: 45px;" class="text-center">#</th>
                     <th>{{ trans('calendar::paps.character_header') }}</th>
-                    <th style="width: 160px;">{{ trans('calendar::paps.paps_header') }}</th>
+                    <th style="width: 200px;">{{ trans('calendar::paps.attendance_pap') }}</th>
+                    <th style="width: 110px;" class="text-right">{{ trans('calendar::paps.consumed_pap') }}</th>
+                    <th style="width: 110px;" class="text-right">{{ trans('calendar::paps.available_pap') }}</th>
                 </tr>
                 </thead>
                 <tbody></tbody>
@@ -141,10 +143,10 @@
 
                         let trendValues = new Array(12).fill(0);
                         data.forEach(function (item) {
-                            trendValues[item.month - 1] = parseFloat(item.qty);
+                            trendValues[item.month - 1] = parseFloat(item.attendance);
                         });
 
-                        let hasData = trendValues.some(function (v) { return v > 0; });
+                        let hasData = trendValues.some(function (v) { return v !== 0; });
                         if (!hasData) {
                             $('#monthlyTrendChart').hide();
                             $('#trendEmpty').removeClass('d-none');
@@ -156,7 +158,7 @@
                             data: {
                                 labels: monthNames,
                                 datasets: [{
-                                    label: 'PAPs',
+                                    label: '{{ trans('calendar::paps.attendance_pap') }}',
                                     data: trendValues,
                                     borderColor: themeColor,
                                     fill: true,
@@ -168,7 +170,7 @@
                             options: {
                                 legend: {display: false},
                                 scales: {
-                                    yAxes: [{ticks: {min: 0, stepSize: 1}}]
+                                    yAxes: [{ticks: {stepSize: 1}}]
                                 }
                             }
                         });
@@ -253,7 +255,8 @@
                             return;
                         }
 
-                        let maxQty = Math.max.apply(null, data.map(function (d) { return parseFloat(d.qty); })) || 1;
+                        // 进度条按出勤 PAP（默认排序口径）；最大值 <= 0 时不做除法，避免除零
+                        let maxAttendance = Math.max.apply(null, data.map(function (d) { return parseFloat(d.attendance_pap); }));
                         let trophyColors = {1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32'};
 
                         $.each(data, function (index, item) {
@@ -261,7 +264,8 @@
                             let rankCell = rank <= 3
                                 ? '<i class="fas fa-trophy" style="color: ' + trophyColors[rank] + ';"></i>'
                                 : rank;
-                            let pct = Math.round(parseFloat(item.qty) / maxQty * 100);
+                            let attendance = parseFloat(item.attendance_pap);
+                            let pct = maxAttendance > 0 ? Math.max(0, Math.round(attendance / maxAttendance * 100)) : 0;
 
                             tbody.append(
                                 '<tr>' +
@@ -272,9 +276,11 @@
                                         '<div class="progress flex-grow-1 mr-2" style="height:16px;">' +
                                             '<div class="progress-bar bg-info" style="width:' + pct + '%"></div>' +
                                         '</div>' +
-                                        '<strong>' + item.qty + '</strong>' +
+                                        '<strong>' + attendance.toFixed(2) + '</strong>' +
                                     '</div>' +
                                 '</td>' +
+                                '<td class="align-middle text-right">' + parseFloat(item.consumed_pap).toFixed(2) + '</td>' +
+                                '<td class="align-middle text-right">' + parseFloat(item.available_pap).toFixed(2) + '</td>' +
                                 '</tr>'
                             );
                         });
@@ -293,9 +299,12 @@
                 let year = $('#rankingSettings').find('input[name="year"]').val();
                 let filename = 'pap_ranking_' + year + (month ? '_' + month : '') + '.csv';
 
-                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.paps_header') }}\n';
+                let csv = '{{ trans('calendar::paps.rank_label') }},{{ trans('calendar::paps.character_header') }},{{ trans('calendar::paps.attendance_pap') }},{{ trans('calendar::paps.consumed_pap') }},{{ trans('calendar::paps.available_pap') }}\n';
                 $.each(currentRankingData, function (index, item) {
-                    csv += (index + 1) + ',"' + (item.name || 'Unknown').replace(/"/g, '""') + '",' + item.qty + '\n';
+                    csv += (index + 1) + ',"' + (item.name || 'Unknown').replace(/"/g, '""') + '",' +
+                        parseFloat(item.attendance_pap).toFixed(2) + ',' +
+                        parseFloat(item.consumed_pap).toFixed(2) + ',' +
+                        parseFloat(item.available_pap).toFixed(2) + '\n';
                 });
 
                 let blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});

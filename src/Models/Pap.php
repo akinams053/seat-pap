@@ -137,6 +137,28 @@ class Pap extends Model
     }
 
     /**
+     * 全局 PAP 统计起始日（单一来源，见计划 §12）
+     *
+     * 所有统计 / 排行 / 抽奖余额 / API 查询都应通过本方法读取统计起点，
+     * 不要再各处硬编码日期。起始日由管理员在设置页配置，存
+     * setting('kassie.calendar.pap_start_date')，缺省回退 2026-01-01。
+     *
+     * 强制月初对齐：个人页趋势按月分组，月中起始日会让该月变成「半个月」。
+     */
+    public static function statisticsStartDate(): \Carbon\Carbon
+    {
+        $raw = setting('kassie.calendar.pap_start_date', true);
+
+        try {
+            $date = $raw ? carbon($raw) : carbon('2026-01-01');
+        } catch (\Exception) {
+            $date = carbon('2026-01-01');
+        }
+
+        return $date->startOfMonth();
+    }
+
+    /**
      * 重新计算指定行动 + 角色的最终 PAP 值并写回 paps.value
      * 最终值 = operation tag max(quantifier) + Σ adjustments
      */

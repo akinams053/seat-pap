@@ -38,6 +38,11 @@ return [
     'this_month_paps' => '本月 PAP',
     'this_year_paps' => '本年 PAP',
 
+    'attendance_pap' => '出勤 PAP',
+    'consumed_pap' => '消费 PAP',
+    'available_pap' => '当前可用 PAP',
+    'attendance_pap_trend' => '每月出勤 PAP',
+
     'all_months' => '全部月份',
     'export_btn' => '导出',
     'rank_label' => '排名',

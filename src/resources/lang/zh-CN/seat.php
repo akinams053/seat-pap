@@ -176,4 +176,12 @@ return [
     'shop_no_main_character' => '未找到主角色，无法跳转。',
     'shop_jwt_info' => 'JWT 令牌结构',
     'shop_jwt_sign_hint' => '签名密钥为上方的 API Token，算法 HMAC-SHA256。商店服务器用同一个 Token 验证签名。令牌有效期 60 秒。',
+
+    'pap_start_settings' => 'PAP 统计起始日',
+    'pap_start_description' => '设置全局 PAP 统计起始日。该日期之前的 PAP 数据保留但不再参与任何统计、排行与抽奖 / 商店消费；该日期及之后的 PAP 正常计入。个人页、军团页、商店 API 与抽奖余额均以此为统计起点。',
+    'pap_start_label' => '起始月份',
+    'pap_start_hint' => '只能精确到月，系统按所选月份的 1 号 0 点生效。',
+    'pap_start_warning' => '请勿把起始日往后调到已发生抽奖消费之后：那会截断对应的出勤来源，导致部分成员的当前可用 PAP 凭空变为负数。',
+    'pap_start_date_saved' => 'PAP 统计起始日已保存。',
+    'pap_start_date_invalid' => '起始日格式不正确。',
 ];

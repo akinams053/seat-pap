@@ -26,52 +26,92 @@ class CharacterController extends Controller
     public function paps(CharacterInfo $character): Factory|View
     {
         $today = carbon();
+        $startDate = Pap::statisticsStartDate();
 
         // 主角色聚合：获取该角色所属用户的所有角色 ID
         $characterIds = $this->getAssociatedCharacterIds($character);
         $mainCharacterId = $this->getMainCharacterId($character);
 
-        $monthlyPaps = Pap::whereIn('character_id', $characterIds)
-            ->select('year', 'month', DB::raw('sum(value) as qty'))
-            ->groupBy('year', 'month')
+        // 月度趋势：每月给出出勤 / 消费 / 当前可用三口径（图表默认画出勤 PAP）
+        $monthlyPaps = DB::table('kassie_calendar_paps as p')
+            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'p.operation_id')
+            ->whereIn('p.character_id', $characterIds)
+            ->where('p.join_time', '>=', $startDate)
+            ->groupBy('p.year', 'p.month')
+            ->orderBy('p.year')
+            ->orderBy('p.month')
+            ->selectRaw('p.year, p.month')
+            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NULL THEN p.value ELSE 0 END), 0) as attendance')
+            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NOT NULL THEN -p.value ELSE 0 END), 0) as consumed')
+            ->selectRaw('COALESCE(SUM(p.value), 0) as available')
             ->get();
 
-        // 当月/当年 PAP 汇总
-        $thisMonthPaps = Pap::whereIn('character_id', $characterIds)
-            ->where('month', $today->month)
-            ->where('year', $today->year)
-            ->sum('value');
-
-        $thisYearPaps = Pap::whereIn('character_id', $characterIds)
-            ->where('year', $today->year)
-            ->sum('value');
+        // 当月 / 当年 三口径 breakdown
+        $thisMonth = $this->papBreakdown($characterIds, $startDate, [
+            ['month', $today->month],
+            ['year', $today->year],
+        ]);
+        $thisYear = $this->papBreakdown($characterIds, $startDate, [
+            ['year', $today->year],
+        ]);
 
         // 排名按主角色聚合
-        $weeklyRanking = $this->getGlobalGroupedRanking([
+        $weeklyRanking = $this->getGlobalGroupedRanking($startDate, [
             ['week', $today->weekOfMonth],
             ['month', $today->month],
             ['year', $today->year],
         ]);
 
-        $monthlyRanking = $this->getGlobalGroupedRanking([
+        $monthlyRanking = $this->getGlobalGroupedRanking($startDate, [
             ['month', $today->month],
             ['year', $today->year],
         ]);
 
-        $yearlyRanking = $this->getGlobalGroupedRanking([
+        $yearlyRanking = $this->getGlobalGroupedRanking($startDate, [
             ['year', $today->year],
         ]);
 
         return view('calendar::character.paps', [
             'monthlyPaps' => $monthlyPaps,
-            'thisMonthPaps' => $thisMonthPaps,
-            'thisYearPaps' => $thisYearPaps,
+            'thisMonth' => $thisMonth,
+            'thisYear' => $thisYear,
             'weeklyRanking' => $weeklyRanking,
             'monthlyRanking' => $monthlyRanking,
             'yearlyRanking' => $yearlyRanking,
             'character' => $character,
             'mainCharacterId' => $mainCharacterId,
         ]);
+    }
+
+    /**
+     * 出勤 / 消费 / 当前可用三口径汇总（带符号定义，见计划 §11）
+     *
+     * 出勤 = 普通行动全部最终值（含被扣成负数的惩罚）
+     * 消费 = 抽奖行动全部最终值取负
+     * 可用 = 全部最终值求和；恒等式 出勤 - 消费 = 可用 精确成立
+     */
+    private function papBreakdown(array $characterIds, \Carbon\Carbon $startDate, array $conditions): array
+    {
+        $query = DB::table('kassie_calendar_paps as p')
+            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'p.operation_id')
+            ->whereIn('p.character_id', $characterIds)
+            ->where('p.join_time', '>=', $startDate);
+
+        foreach ($conditions as [$column, $value]) {
+            $query->where("p.{$column}", $value);
+        }
+
+        $row = $query
+            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NULL THEN p.value ELSE 0 END), 0) as attendance')
+            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NOT NULL THEN -p.value ELSE 0 END), 0) as consumed')
+            ->selectRaw('COALESCE(SUM(p.value), 0) as available')
+            ->first();
+
+        return [
+            'attendance' => (float) $row->attendance,
+            'consumed' => (float) $row->consumed,
+            'available' => (float) $row->available,
+        ];
     }
 
     private function getAssociatedCharacterIds(CharacterInfo $character): array
@@ -89,11 +129,12 @@ class CharacterController extends Controller
         return $token?->user?->main_character_id ?? $character->character_id;
     }
 
-    private function getGlobalGroupedRanking(array $conditions): Collection
+    private function getGlobalGroupedRanking(\Carbon\Carbon $startDate, array $conditions): Collection
     {
         $query = DB::table('kassie_calendar_paps')
             ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
-            ->leftJoin('users as u', 'rt.user_id', '=', 'u.id');
+            ->leftJoin('users as u', 'rt.user_id', '=', 'u.id')
+            ->where('kassie_calendar_paps.join_time', '>=', $startDate);
 
         foreach ($conditions as [$column, $value]) {
             $query->where("kassie_calendar_paps.{$column}", $value);
