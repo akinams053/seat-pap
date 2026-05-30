@@ -6,37 +6,119 @@
 
 > 约定：标注「**宿主命令**」的在 SeAT 根目录执行；标注「**SQL**」的在宿主数据库执行（`mysql` 或任意客户端）。下文 SQL 里的 `:lottery_id` / `:op_id` 等请替换为实际值。
 
+## 执行版总览
+
+建议按下面顺序验证，不要跳过账务核对。每完成一项，就在本文件对应阶段旁记录「通过 / 失败 / 未测」与关键 ID。
+
+| 顺序 | 场景 | 最小通过标准 |
+| --- | --- | --- |
+| 1 | 宿主加载 | 路由、迁移、三张抽奖表、`lottery` enum 均存在 |
+| 2 | 创建抽奖 | 详情页可打开，`lottery` / `operation` / tag / nodes / prizes 全部落库 |
+| 3 | 购买节点 | 节点被占用，产生负数 `PapAdjustment`，`paps.value` 正确回写 |
+| 4 | 售满开奖 | 状态变为 `drawn`，`draw_log.draw_mode = sold_out`，中奖节点合法 |
+| 5 | 提前开奖 | `open` 且已有售出节点时可开奖，未售节点写 `voided_at` |
+| 6 | 取消退款 | 状态变为 `cancelled`，正数退款 adjustment 生成，净额回到 0 |
+| 7 | 行动审查 | lottery 徽标、流水、跳转、整行动清零限制均符合预期 |
+| 8 | 回归检查 | 普通 operation PAP 发放、审查、角色/军团统计仍正常 |
+
+### 关键变量记录表
+
+执行时建议先把这些值记下来，后续 SQL 统一替换：
+
+| 变量 | 含义 | 实际值 |
+| --- | --- | --- |
+| `:lottery_id` | 当前测试抽奖 ID |  |
+| `:op_id` | 当前测试抽奖关联 operation ID |  |
+| `:lottery_id2` | 取消退款测试抽奖 ID |  |
+| `:op_id2` | 取消退款测试 operation ID |  |
+| `:lottery_id3` | 提前开奖测试抽奖 ID |  |
+| `:op_id3` | 普通 action 清零测试 operation ID |  |
+| `:user_id` | 普通成员测试用户 ID |  |
+| `:character_id` | 普通成员测试角色 ID |  |
+
+### 单项结果记录模板
+
+```text
+阶段：
+操作账号 / 角色：
+关键 ID：lottery_id=, op_id=, user_id=, character_id=
+页面结果：
+SQL 核对结果：
+是否通过：通过 / 失败 / 未测
+异常日志：storage/logs/laravel.log 对应时间片段，如无则写“无”
+后续处理：
+```
+
+### 失败时优先回收的信息
+
+若页面提示成功但 SQL 不一致，优先保留以下信息再清理测试数据：
+
+```sql
+SELECT * FROM kassie_calendar_lotteries WHERE id = :lottery_id;
+SELECT * FROM kassie_calendar_lottery_nodes WHERE lottery_id = :lottery_id ORDER BY node_number;
+SELECT * FROM kassie_calendar_lottery_prizes WHERE lottery_id = :lottery_id ORDER BY sort_order;
+SELECT * FROM kassie_calendar_paps WHERE operation_id = :op_id ORDER BY character_id;
+SELECT * FROM kassie_calendar_pap_adjustments WHERE operation_id = :op_id ORDER BY id;
+```
+
 ## 当前交接进度（2026-05）
 
 - **代码已推到分支**：`docs/pap-hypernet-lottery-plan`
-- **测试服已确认部署版本**：`871b17c`（含「整行动 PAP 清零」与「5 秒短轮询」）
+- **测试服已确认部署版本**：`c7655e8`（含「整行动 PAP 清零」「5 秒短轮询」与 PAP 排名除零修复）
 - **已实测通过**：
   - 阶段 1 结构类检查（字段精度 / enum / 三张抽奖表 / 索引）
   - 抽奖创建阻塞性 bug 修复：保留 tag 补 `bg_color` / `text_color`
   - 购买前阻塞性 bug 修复：抽奖 PAP 首次创建补 `ship_type_id = 0`
   - 新路由已在宿主注册：`lottery.snapshot`、`operation.audit.zero`
+  - 阶段 2：创建后页面/落库完整核对（2026-05-30 用户反馈已验证）
+  - 阶段 3：购买节点与负数扣费（2026-05-30 用户反馈已验证）
   - 阶段 3.5：30 角色并发购买模拟（30/30 成功、无重复节点、账务一致、测试数据已清理）
+  - 阶段 4：售满开奖（2026-05-30 用户反馈已验证）
+  - 阶段 4.4：提前开奖（`draw_mode = early`、未售节点 `voided_at`）（2026-05-30 用户反馈已验证）
+  - 阶段 5：取消退款（2026-05-30 用户反馈已验证）
+  - 阶段 6 部分验证：旧普通行动执行整行动 PAP 清零后，个人 PAP 页面曾触发 `DivisionByZeroError`，已通过 `c7655e8` 修复并由用户确认恢复。
 - **待继续实测**：
-  - 阶段 2 创建后页面/落库完整核对
-  - 阶段 3 购买节点与负数扣费
-  - 阶段 4 售满开奖
-  - 阶段 4.4 提前开奖（`draw_mode = early`、未售节点 `voided_at`）
-  - 阶段 5 取消退款
-  - 阶段 6 行动审查友好化 + 整行动 PAP 清零
+  - 阶段 6 行动审查友好化完整回归：抽奖徽标、单 PAP 展示、抽奖详情跳转、adjustments 流水、未终态 lottery action 清零拒绝路径。
+
+### 本轮只读复核（2026-05-30）
+
+通过 `seat-ssh` 的 `test` target 做了只读检查，未执行迁移、部署、重启、写库或文件修改。
+
+已确认：
+
+- 测试服 Laravel 为 `10.50.2`。
+- `akinams053/seat-pap` 只读复核时安装为 `dev-docs/pap-hypernet-lottery-plan`，source commit 为 `871b17cbb56420dfa2a029d08e918780863d9e32`；随后已通过 Composer 更新到 `c7655e89860d882c48453aba85b7396aa0565375`。
+- `lotteries` / `lottery.snapshot` / `operation.audit.zero` / PAP API / character 与 corporation PAP 路由均已注册。
+- `create_pap_audit_tables`、`widen_pap_value_precision`、`extend_calendar_tags_analytics_enum`、`create_lottery_tables` 均为 `Ran`。
+- `kassie_calendar_paps.value` 与 `kassie_calendar_pap_adjustments.value` 均为 `decimal(8,2)`。
+- `calendar_tags.analytics` enum 已包含 `lottery`。
+- 三张抽奖表存在，且 `lotteries.operation_id` 唯一索引、`lotteries.status` 索引、`lotteries.created_by_character_id` 索引、`lottery_nodes(lottery_id,node_number)` 唯一索引均存在。
+- 既有抽奖 `id=3` 为 `drawn`，`draw_log.draw_mode = early`，未售节点已写 `voided_at`，中奖节点落在已售节点中。
+- 既有取消抽奖 `operation_id IN (182,183)` 的扣费与退款 adjustment 净额为 `0.00`，对应 `paps.value` 已回到 `0.00`。
+- 既有并发测试抽奖 `id=4` 当前为 `open`，`sold_count = 0`，与“测试数据已清理”状态一致。
+
+### 阶段 6 回归：个人 PAP 排名除零（2026-05-30）
+
+在旧普通行动执行「整行动 PAP 清零」后，访问 `/character/2118151113/paps` 曾触发：
+
+```text
+DivisionByZeroError: Division by zero
+View: common/includes/ranking_table.blade.php
+Controller: CharacterController@paps
+```
+
+原因：清零后某个排行榜周期内最大 PAP 变为 `0.00`，排名表进度条仍按 `当前 PAP / 最大 PAP * 100` 计算宽度，PHP 8.4 下触发除零。
+
+修复：`c7655e8 fix: 防止 PAP 排名进度条除零`，当最大 PAP `<= 0` 时进度条宽度返回 `0`，正数时才做除法，并限制在 `0–100`。
+
+部署与验证：测试服已通过 `composer update akinams053/seat-pap --no-cache` 更新到 `c7655e8`，并执行 `php artisan view:clear`；用户随后确认个人 PAP 页面恢复。
 
 ## 测试服连接约定
 
 - Web 入口：`http://ylxh.de`
-- 如需从当前工作区旁路 SSH 到测试服，复用兄弟仓库 `seat-fitting` 的辅助脚本：
-
-**本机命令**
-```bash
-cd ../seat-fitting
-bash scripts/ssh-seat -t test 'your command here'
-```
-
-说明：
-- 凭据文件在 `../seat-fitting/.creds.test`，私钥路径也在该文件第 4 行配置；**不要**把实际 IP、账号、私钥内容再写进本仓库文档。
+- 后续如需从当前工作区旁路 SSH 到测试服，优先通过本机项目 `E:\AI\All projects\seat-ssh` 连接。
+- **连接前必须先说明将连接的服务器名称与 IP**，并说明本次会执行只读检查还是写入操作；不要在未说明目标服务器/IP 的情况下直接发起连接。
+- 不要把实际 IP、账号、私钥内容写入本仓库文档或提交到 git。
 - 在宿主上跑 `php artisan` 时，优先使用 `sudo -u www-data php artisan ...`，避免 root 直跑造成权限问题。
 
 ---
