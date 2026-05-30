@@ -55,13 +55,7 @@ class CharacterController extends Controller
             ['year', $today->year],
         ]);
 
-        // 排名按主角色聚合
-        $weeklyRanking = $this->getGlobalGroupedRanking($startDate, [
-            ['week', $today->weekOfMonth],
-            ['month', $today->month],
-            ['year', $today->year],
-        ]);
-
+        // 荣誉榜按主角色聚合，按出勤 PAP 排（取消本周榜，只保留本月 / 本年）
         $monthlyRanking = $this->getGlobalGroupedRanking($startDate, [
             ['month', $today->month],
             ['year', $today->year],
@@ -75,7 +69,6 @@ class CharacterController extends Controller
             'monthlyPaps' => $monthlyPaps,
             'thisMonth' => $thisMonth,
             'thisYear' => $thisYear,
-            'weeklyRanking' => $weeklyRanking,
             'monthlyRanking' => $monthlyRanking,
             'yearlyRanking' => $yearlyRanking,
             'character' => $character,
@@ -131,9 +124,13 @@ class CharacterController extends Controller
 
     private function getGlobalGroupedRanking(\Carbon\Carbon $startDate, array $conditions): Collection
     {
+        // 荣誉榜按出勤 PAP 排（普通行动最终值，排除抽奖消费）；聚合别名不能进 ORDER BY，写完整表达式
+        $attendanceExpr = 'SUM(CASE WHEN l.id IS NULL THEN kassie_calendar_paps.value ELSE 0 END)';
+
         $query = DB::table('kassie_calendar_paps')
             ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
             ->leftJoin('users as u', 'rt.user_id', '=', 'u.id')
+            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'kassie_calendar_paps.operation_id')
             ->where('kassie_calendar_paps.join_time', '>=', $startDate);
 
         foreach ($conditions as [$column, $value]) {
@@ -142,9 +139,9 @@ class CharacterController extends Controller
 
         $ranking = $query
             ->select(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id) as character_id'))
-            ->selectRaw('SUM(kassie_calendar_paps.value) as qty')
+            ->selectRaw('COALESCE(' . $attendanceExpr . ', 0) as qty')
             ->groupBy(DB::raw('COALESCE(u.main_character_id, kassie_calendar_paps.character_id)'))
-            ->orderBy('qty', 'desc')
+            ->orderByRaw($attendanceExpr . ' DESC')
             ->get();
 
         $characters = CharacterInfo::whereIn('character_id', $ranking->pluck('character_id'))

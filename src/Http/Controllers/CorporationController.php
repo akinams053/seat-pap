@@ -105,10 +105,13 @@ class CorporationController extends Controller
 
     private function getTypeDistribution(int $corporationId, \Carbon\Carbon $startDate, int $year, ?int $month = null): Collection
     {
+        // 类型分布只反映「出勤 PAP 的构成」，抽奖是消耗、与收入不同层级，排除抽奖 operation 不入饼图
         $query = DB::table('kassie_calendar_paps')
             ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
             ->join('calendar_tag_operation as cto', 'cto.operation_id', '=', 'kassie_calendar_paps.operation_id')
             ->join('calendar_tags as ct', 'ct.id', '=', 'cto.tag_id')
+            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'kassie_calendar_paps.operation_id')
+            ->whereNull('l.id')
             ->where('ca.corporation_id', $corporationId)
             ->where('kassie_calendar_paps.year', $year)
             ->where('kassie_calendar_paps.join_time', '>=', $startDate);

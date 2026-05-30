@@ -29,9 +29,9 @@ return [
     'no_paps_this_year' => '本年暂无 PAP 数据。',
 
     'monthly_trend_header' => '月度参与趋势',
-    'type_distribution_header' => 'PAP 类型分布',
-    'type_dist_month_header' => 'PAP 类型分布（月度）',
-    'type_dist_year_header' => 'PAP 类型分布（年度）',
+    'type_distribution_header' => '出勤 PAP 类型分布',
+    'type_dist_month_header' => '出勤 PAP 类型分布（月度）',
+    'type_dist_year_header' => '出勤 PAP 类型分布（年度）',
     'main_character_grouped' => '已按主角色聚合',
     'no_data' => '暂无数据。',
 

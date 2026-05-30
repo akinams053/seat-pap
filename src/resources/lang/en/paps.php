@@ -29,9 +29,9 @@ return [
     'no_paps_this_year' => 'There no paps for the current year.',
 
     'monthly_trend_header' => 'Monthly Trend',
-    'type_distribution_header' => 'PAP Type Distribution',
-    'type_dist_month_header' => 'PAP Type Distribution (Monthly)',
-    'type_dist_year_header' => 'PAP Type Distribution (Yearly)',
+    'type_distribution_header' => 'Attendance PAP Type Distribution',
+    'type_dist_month_header' => 'Attendance PAP Type Distribution (Monthly)',
+    'type_dist_year_header' => 'Attendance PAP Type Distribution (Yearly)',
     'main_character_grouped' => 'Grouped by main character',
     'no_data' => 'No data available.',
 

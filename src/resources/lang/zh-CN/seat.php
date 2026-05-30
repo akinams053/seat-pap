@@ -134,6 +134,8 @@ return [
     'pvp' => '散打',
     'mining' => '开采',
     'other' => '其他',
+    'untracked' => '不计',
+    'lottery' => '抽奖',
     'track_fleet' => 'PAP 发放',
     'list' => '列表',
 

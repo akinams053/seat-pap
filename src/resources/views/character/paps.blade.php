@@ -40,17 +40,11 @@
             <div class="chart">
                 <canvas id="papPerMonth" height="150" width="1000"></canvas>
             </div>
-            <h4>{{ trans('calendar::paps.hall_of_fame_header') }}</h4>
+            <h4>{{ trans('calendar::paps.hall_of_fame_header') }}
+                <small class="text-muted ml-2">{{ trans('calendar::paps.attendance_pap') }}</small>
+            </h4>
             <div class="row">
-                <div class="col-md-4">
-                    <h5>{{ trans('calendar::paps.this_week_header') }}</h5>
-                    @include('calendar::common.includes.ranking_table', [
-                        'ranking' => $weeklyRanking,
-                        'emptyMessage' => trans('calendar::paps.first_week_paps'),
-                        'highlightId' => $mainCharacterId,
-                    ])
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <h5>{{ trans('calendar::paps.this_month_header') }}</h5>
                     @include('calendar::common.includes.ranking_table', [
                         'ranking' => $monthlyRanking,
@@ -58,7 +52,7 @@
                         'highlightId' => $mainCharacterId,
                     ])
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <h5>{{ trans('calendar::paps.this_year_header') }}</h5>
                     @include('calendar::common.includes.ranking_table', [
                         'ranking' => $yearlyRanking,

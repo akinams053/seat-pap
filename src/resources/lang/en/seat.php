@@ -138,6 +138,8 @@ return [
     'pvp' => 'PvP',
     'mining' => 'Mining',
     'other' => 'Other',
+    'untracked' => 'Untracked',
+    'lottery' => 'Lottery',
     'list' => 'List',
 
     'add_to_calendar' => 'Add To Calendar',
