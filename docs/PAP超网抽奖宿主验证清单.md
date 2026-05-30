@@ -78,8 +78,9 @@ SELECT * FROM kassie_calendar_pap_adjustments WHERE operation_id = :op_id ORDER 
   - 阶段 5：取消退款（2026-05-30 用户反馈已验证）
   - 阶段 6 部分验证：旧普通行动执行整行动 PAP 清零后，个人 PAP 页面曾触发 `DivisionByZeroError`，已通过 `c7655e8` 修复并由用户确认恢复。
   - 阶段 6 只读/控制器回归复核（2026-05-30）：审查列表 JSON、抽奖成员明细 JSON、普通清零结果、未终态抽奖清零拒绝、零值排行榜局部视图均已复核通过，详见下方记录。
+  - 阶段 6 浏览器 UI 目视确认（2026-05-30 用户确认无误）：抽奖徽标实际渲染、单 PAP 列 `—`、抽奖详情跳转链接等关键 UI 项通过。
 - **待继续实测**：
-  - 阶段 6 仅剩浏览器 UI 目视确认项：抽奖徽标实际渲染、单 PAP 列 `—`、抽奖详情跳转链接可点击、负数总额时“消费 PAP”文案显示。现有测试服抽奖样本已退款/清零，暂无负数 lottery 汇总样本。
+  - 暂无阶段 1–6 阻塞项；如后续新建未退款、未清零的负数 lottery 样本，可顺手复核总额列“消费 PAP xx”文案。
 
 ### 本轮只读复核（2026-05-30）
 
@@ -127,12 +128,11 @@ Controller: CharacterController@paps
 - 未终态抽奖 `operation_id = 185` / `lottery_id = 4` 当前 `status = open`。调用 `AuditController::zero(185)` 返回 HTTP `422`，message 为“still open or sold out waiting for draw; zeroing ... is not allowed yet”，验证未终态 lottery action 清零拒绝路径生效。
 - 直接渲染 `calendar::common.includes.ranking_table` 的零值排行榜局部视图，`qty = "0.00"` 时成功渲染并输出 `width: 0%`，未再触发除零。
 
-仍建议由浏览器目视确认：
+浏览器目视确认：
 
-- `/calendar/audit` 表格中抽奖徽标实际样式；
-- 抽奖行动「单 PAP」列是否显示 `—`；
-- 成员明细 modal 中「查看抽奖详情」按钮是否可点击并跳转正确；
-- 后续如新建一个未清零、未退款的负数 lottery 样本，再确认总额列显示“消费 PAP xx”。
+- 用户已确认 `/calendar/audit` 阶段 6 浏览器 UI 验证无误。
+- 覆盖重点包括抽奖徽标、抽奖行动「单 PAP」列 `—`、成员明细 modal 中「查看抽奖详情」按钮等关键 UI 项。
+- 后续如新建一个未清零、未退款的负数 lottery 样本，可顺手再确认总额列显示“消费 PAP xx”。
 
 ## 测试服连接约定
 
