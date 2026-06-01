@@ -5,8 +5,10 @@ namespace Seat\Kassie\Calendar\Http\Controllers;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Kassie\Calendar\Models\Tag;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Web\Http\Controllers\Controller;
@@ -55,7 +57,9 @@ class SettingController extends Controller
         }
 
         $apiToken = setting('kassie.calendar.api_token', true) ?: '';
+        $apiWriteToken = setting('kassie.calendar.api_write_token', true) ?: '';
         $shopUrl = setting('kassie.calendar.shop_url', true) ?: '';
+        $lotteryUrl = setting('kassie.calendar.lottery_url', true) ?: '';
 
         // 全局 PAP 起始日（月初对齐），<input type="month"> 用 Y-m 格式
         $papStartMonth = carbon(setting('kassie.calendar.pap_start_date', true) ?: '2026-01-01')->format('Y-m');
@@ -64,7 +68,9 @@ class SettingController extends Controller
             'tags' => $tags,
             'motd' => $motd,
             'apiToken' => $apiToken,
+            'apiWriteToken' => $apiWriteToken,
             'shopUrl' => $shopUrl,
+            'lotteryUrl' => $lotteryUrl,
             'papStartMonth' => $papStartMonth,
         ]);
     }
@@ -103,6 +109,21 @@ class SettingController extends Controller
         setting(['kassie.calendar.api_token', ''], true);
 
         return redirect()->back()->with('success', trans('calendar::seat.api_token_deleted'));
+    }
+
+    public function regenerateApiWriteToken(): RedirectResponse
+    {
+        $token = Str::random(48);
+        setting(['kassie.calendar.api_write_token', $token], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.api_write_token_regenerated'));
+    }
+
+    public function deleteApiWriteToken(): RedirectResponse
+    {
+        setting(['kassie.calendar.api_write_token', ''], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.api_write_token_deleted'));
     }
 
     public function updateShopUrl(Request $request): RedirectResponse
@@ -179,6 +200,67 @@ class SettingController extends Controller
         $separator = str_contains($shopUrl, '?') ? '&' : '?';
 
         return redirect("$shopUrl{$separator}token=$jwt");
+    }
+
+    /**
+     * 抽奖外链跳转：照 shopRedirect，JWT 额外带余额快照（仅供外部即时显示）。
+     */
+    public function lotteryRedirect(): RedirectResponse
+    {
+        $lotteryUrl = setting('kassie.calendar.lottery_url', true);
+        if (! $lotteryUrl) {
+            return redirect()->route('setting.index')
+                ->with('error', trans('calendar::seat.lottery_url_not_configured'));
+        }
+
+        $apiToken = setting('kassie.calendar.api_token', true);
+        if (! $apiToken) {
+            return redirect()->route('setting.index')
+                ->with('error', trans('calendar::seat.shop_token_not_configured'));
+        }
+
+        $user = auth()->user();
+        $mainCharacterId = $user->main_character_id;
+        if (! $mainCharacterId) {
+            return redirect()->back()->with('error', trans('calendar::seat.shop_no_main_character'));
+        }
+
+        $characterName = CharacterInfo::find($mainCharacterId)?->name ?? trans('web::seat.unknown');
+
+        // 余额快照仅供外部即时显示，不作为可花额度权威（权威是 debit 时服务端校验）
+        $balance = max(0.0, (float) DB::table('kassie_calendar_paps')
+            ->whereIn('character_id', $user->associatedCharacterIds())
+            ->where('join_time', '>=', Pap::statisticsStartDate())
+            ->sum('value'));
+
+        $header = $this->base64UrlEncode(json_encode(['alg' => 'HS256', 'typ' => 'JWT']));
+        $payload = $this->base64UrlEncode(json_encode([
+            'sub'  => $user->id,
+            'main_character_id' => $mainCharacterId,
+            'name' => $characterName,
+            'balance' => $balance,
+            'iat'  => time(),
+            'exp'  => time() + 60,
+        ]));
+        $signature = $this->base64UrlEncode(hash_hmac('sha256', "$header.$payload", $apiToken, true));
+        $jwt = "$header.$payload.$signature";
+
+        $separator = str_contains($lotteryUrl, '?') ? '&' : '?';
+
+        return redirect("$lotteryUrl{$separator}token=$jwt");
+    }
+
+    public function updateLotteryUrl(Request $request): RedirectResponse
+    {
+        $url = trim($request->input('lottery_url', ''));
+
+        if ($url !== '' && ! filter_var($url, FILTER_VALIDATE_URL)) {
+            return redirect()->back()->with('error', trans('calendar::seat.lottery_url_invalid'));
+        }
+
+        setting(['kassie.calendar.lottery_url', $url], true);
+
+        return redirect()->back()->with('success', trans('calendar::seat.lottery_url_saved'));
     }
 
     private function base64UrlEncode(string $data): string

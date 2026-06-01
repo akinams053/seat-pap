@@ -49,8 +49,6 @@ class AuditController extends Controller
             ->join('kassie_calendar_paps as p', 'p.operation_id', '=', 'o.id')
             ->leftJoin('calendar_tag_operation as tx', 'tx.operation_id', '=', 'o.id')
             ->leftJoin('calendar_tags as t', 't.id', '=', 'tx.tag_id')
-            // 抽奖识别（1:1，不会放大行数；见计划 §4.4.3 主识别）
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'o.id')
             ->select(
                 'o.id',
                 'o.title',
@@ -60,13 +58,14 @@ class AuditController extends Controller
                 DB::raw('MAX(p.created_at) as latest_pap_at'),
                 DB::raw('COUNT(DISTINCT p.character_id) as member_count'),
                 DB::raw('COALESCE(SUM(p.value), 0) as pap_total'),
-                DB::raw('COALESCE(MAX(t.quantifier), 0) as pap_value'),
-                DB::raw('MAX(l.id) as lottery_id')
+                DB::raw('COALESCE(MAX(t.quantifier), 0) as pap_value')
             )
+            ->where('o.is_consumption', 0)
             ->groupBy('o.id', 'o.title', 'o.fc', 'o.fc_character_id', 'o.end_at');
 
         $totalCount = DB::table('calendar_operations as o')
             ->join('kassie_calendar_paps as p', 'p.operation_id', '=', 'o.id')
+            ->where('o.is_consumption', 0)
             ->distinct()
             ->count('o.id');
 
@@ -92,8 +91,6 @@ class AuditController extends Controller
             'member_count' => (int) $r->member_count,
             'pap_value' => (float) $r->pap_value,
             'pap_total' => (float) $r->pap_total,
-            'lottery_id' => $r->lottery_id ? (int) $r->lottery_id : null,
-            'is_lottery' => ! is_null($r->lottery_id),
             'can_audit' => $canAudit,
         ]);
 
@@ -110,7 +107,7 @@ class AuditController extends Controller
      */
     public function membersJson(int $operationId): JsonResponse
     {
-        $operation = Operation::with('tags', 'lottery')->find($operationId);
+        $operation = Operation::with('tags')->find($operationId);
         if (is_null($operation))
             return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
 
@@ -168,8 +165,6 @@ class AuditController extends Controller
                 'fleet_end_at' => optional($paps->max('created_at'))->toDateTimeString() ?: optional($operation->end_at)->toDateTimeString(),
                 'member_count' => $paps->count(),
                 'pap_total' => (float) $paps->sum('value'),
-                'lottery_id' => $operation->lottery?->id,
-                'is_lottery' => ! is_null($operation->lottery),
             ],
             'can_audit' => auth()->user()->can('calendar.create'),
             'members' => $members,
@@ -184,18 +179,12 @@ class AuditController extends Controller
         if (!auth()->user()->can('calendar.create'))
             return response()->json(['status' => 'error', 'message' => 'Permission denied.'], 403);
 
-        $operation = Operation::with('lottery')->find($operationId);
+        $operation = Operation::find($operationId);
         if (is_null($operation))
             return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
 
         if (!$operation->isUserGranted(auth()->user()))
             return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
-
-        if (! is_null($operation->lottery) && in_array($operation->lottery->status, ['open', 'sold_out'], true))
-            return response()->json([
-                'status' => 'error',
-                'message' => trans('calendar::paps.audit_zero_active_lottery_forbidden'),
-            ], 422);
 
         $operatorCharId = auth()->user()->main_character_id;
         $reason = trans('calendar::paps.audit_zero_reason');
@@ -318,6 +307,92 @@ class AuditController extends Controller
                 'by_name' => $byName,
                 'at' => $adjustment->created_at->toDateTimeString(),
             ],
+        ]);
+    }
+
+    /**
+     * 外部消费审查页（资金审查）：玩法审查归外部服务，本页只做资金审查。
+     */
+    public function consumptionIndex(): Factory|View
+    {
+        return view('calendar::audit.consumption');
+    }
+
+    /**
+     * 消费场次聚合：按 ref_group（回退 op:operation_id）汇总成「一笔订单/场次」。
+     * 数据源 = source <> attendance_audit 的全部账本调整（含历史抽奖、商店、新消费）。
+     */
+    public function consumptionJson(): JsonResponse
+    {
+        $refExpr = "COALESCE(a.ref_group, CONCAT('op:', a.operation_id))";
+
+        $rows = DB::table('kassie_calendar_pap_adjustments as a')
+            ->leftJoin('calendar_operations as o', 'o.id', '=', 'a.operation_id')
+            ->where('a.source', '<>', 'attendance_audit')
+            ->selectRaw("$refExpr as ref_key")
+            ->selectRaw('MIN(a.source) as merchant')
+            ->selectRaw('MIN(o.title) as op_title')
+            ->selectRaw('COUNT(DISTINCT a.character_id) as participants')
+            ->selectRaw('SUM(CASE WHEN a.value < 0 THEN -a.value ELSE 0 END) as debited')
+            ->selectRaw('SUM(CASE WHEN a.value > 0 THEN a.value ELSE 0 END) as refunded')
+            ->selectRaw('SUM(-a.value) as net_consumed')
+            ->selectRaw('MAX(a.created_at) as last_at')
+            ->groupByRaw($refExpr)
+            // 聚合别名不能进 HAVING/ORDER BY，写完整表达式
+            ->havingRaw('SUM(-a.value) <> 0')
+            ->orderByRaw('MAX(a.created_at) DESC')
+            ->get();
+
+        return response()->json([
+            'data' => $rows->map(fn($r) => [
+                'ref_key' => $r->ref_key,
+                'merchant' => $r->merchant,
+                'title' => $r->op_title,
+                'participants' => (int) $r->participants,
+                'debited' => (float) $r->debited,
+                'refunded' => (float) $r->refunded,
+                'net_consumed' => (float) $r->net_consumed,
+                'last_at' => $r->last_at,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * 单场次逐笔流水：?ref=<ref_group> 或 ?ref=op:<operation_id>（历史无 ref_group 的回退键）。
+     */
+    public function consumptionDetailJson(Request $request): JsonResponse
+    {
+        $ref = (string) $request->query('ref', '');
+        if ($ref === '') {
+            return response()->json(['status' => 'error', 'message' => 'Missing ref.'], 400);
+        }
+
+        $query = DB::table('kassie_calendar_pap_adjustments as a')
+            ->where('a.source', '<>', 'attendance_audit');
+
+        if (str_starts_with($ref, 'op:')) {
+            $query->whereNull('a.ref_group')->where('a.operation_id', (int) substr($ref, 3));
+        } else {
+            $query->where('a.ref_group', $ref);
+        }
+
+        $items = $query->orderBy('a.created_at')
+            ->get(['a.character_id', 'a.value', 'a.source', 'a.reason', 'a.external_ref', 'a.created_at']);
+
+        $names = CharacterInfo::whereIn('character_id', $items->pluck('character_id'))
+            ->pluck('name', 'character_id');
+
+        return response()->json([
+            'status' => 'success',
+            'items' => $items->map(fn($a) => [
+                'character_id' => $a->character_id,
+                'character_name' => $names->get($a->character_id, '#' . $a->character_id),
+                'value' => (float) $a->value,
+                'source' => $a->source,
+                'reason' => $a->reason,
+                'external_ref' => $a->external_ref,
+                'at' => $a->created_at,
+            ])->values(),
         ]);
     }
 }

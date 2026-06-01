@@ -21,6 +21,25 @@ Route::group([
 
 });
 
+// PAP 写接口 — 独立写 token，供外部抽奖/商店实时扣款、退款
+Route::group([
+    'namespace' => 'Seat\\Kassie\\Calendar\\Http\\Controllers',
+    'middleware' => ['api', 'calendar.api.write_token'],
+    'prefix' => 'api/calendar',
+], function (): void {
+
+    Route::post('/paps/debit', [
+        'as' => 'api.calendar.paps.debit',
+        'uses' => 'ApiController@debit',
+    ]);
+
+    Route::post('/paps/refund', [
+        'as' => 'api.calendar.paps.refund',
+        'uses' => 'ApiController@refund',
+    ]);
+
+});
+
 Route::group([
     'namespace' => 'Seat\Kassie\Calendar\Http\Controllers',
     'middleware' => ['web', 'auth', 'locale'],
@@ -180,57 +199,6 @@ Route::group([
 
     });
 
-    // PAP 超网抽奖
-    Route::group([
-        'prefix' => 'lotteries',
-    ], function (): void {
-
-        Route::get('/', [
-            'as' => 'lottery.index',
-            'uses' => 'LotteryController@index',
-        ]);
-
-        Route::get('/create', [
-            'as' => 'lottery.create',
-            'uses' => 'LotteryController@create',
-            'middleware' => 'can:calendar.create',
-        ]);
-
-        Route::post('/', [
-            'as' => 'lottery.store',
-            'uses' => 'LotteryController@store',
-            'middleware' => 'can:calendar.create',
-        ]);
-
-        Route::get('/{lottery}', [
-            'as' => 'lottery.show',
-            'uses' => 'LotteryController@show',
-        ])->where('lottery', '[0-9]+');
-
-        Route::get('/{lottery}/snapshot', [
-            'as' => 'lottery.snapshot',
-            'uses' => 'LotteryController@snapshot',
-        ])->where('lottery', '[0-9]+');
-
-        Route::post('/{lottery}/purchase', [
-            'as' => 'lottery.purchase',
-            'uses' => 'LotteryController@purchase',
-        ])->where('lottery', '[0-9]+');
-
-        Route::post('/{lottery}/draw', [
-            'as' => 'lottery.draw',
-            'uses' => 'LotteryController@draw',
-            'middleware' => 'can:calendar.create',
-        ])->where('lottery', '[0-9]+');
-
-        Route::post('/{lottery}/cancel', [
-            'as' => 'lottery.cancel',
-            'uses' => 'LotteryController@cancel',
-            'middleware' => 'can:calendar.create',
-        ])->where('lottery', '[0-9]+');
-
-    });
-
     // 行动审查
     Route::group([
         'prefix' => 'audit',
@@ -246,12 +214,33 @@ Route::group([
             'uses' => 'AuditController@operationsJson',
         ]);
 
+        Route::get('/consumption', [
+            'as' => 'audit.consumption.index',
+            'uses' => 'AuditController@consumptionIndex',
+        ]);
+
+        Route::get('/consumption/json', [
+            'as' => 'audit.consumption.json',
+            'uses' => 'AuditController@consumptionJson',
+        ]);
+
+        Route::get('/consumption/detail', [
+            'as' => 'audit.consumption.detail',
+            'uses' => 'AuditController@consumptionDetailJson',
+        ]);
+
     });
 
     // PAP 商店跳转
     Route::get('shop/redirect', [
         'as' => 'calendar.shop.redirect',
         'uses' => 'SettingController@shopRedirect',
+    ]);
+
+    // 抽奖外链跳转（玩法在外部服务，SeAT 只签发带余额快照的 JWT）
+    Route::get('lottery/redirect', [
+        'as' => 'calendar.lottery.redirect',
+        'uses' => 'SettingController@lotteryRedirect',
     ]);
 
     Route::group([
@@ -279,9 +268,24 @@ Route::group([
             'uses' => 'SettingController@deleteApiToken',
         ]);
 
+        Route::post('api-write-token/regenerate', [
+            'as' => 'setting.api_write_token.regenerate',
+            'uses' => 'SettingController@regenerateApiWriteToken',
+        ]);
+
+        Route::post('api-write-token/delete', [
+            'as' => 'setting.api_write_token.delete',
+            'uses' => 'SettingController@deleteApiWriteToken',
+        ]);
+
         Route::post('shop-url', [
             'as' => 'setting.shop_url.update',
             'uses' => 'SettingController@updateShopUrl',
+        ]);
+
+        Route::post('lottery-url', [
+            'as' => 'setting.lottery_url.update',
+            'uses' => 'SettingController@updateLotteryUrl',
         ]);
 
         Route::post('pap-start-date', [

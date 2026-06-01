@@ -5,6 +5,7 @@ namespace Seat\Kassie\Calendar\Models;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -42,12 +43,14 @@ class Operation extends Model
         'fc',
         'fc_character_id',
         'role_name',
+        'is_consumption',
+        'consumption_key',
     ];
 
     /**
      * @var array
      */
-    protected $casts = ['start_at' => 'datetime', 'end_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime'];
+    protected $casts = ['start_at' => 'datetime', 'end_at' => 'datetime', 'created_at' => 'datetime', 'updated_at' => 'datetime', 'is_consumption' => 'boolean'];
 
     /**
      * @return HasOne
@@ -239,5 +242,43 @@ class Operation extends Model
             return true;
 
         return $user->roles->where('title', $this->role_name)->isNotEmpty() || auth()->user()->isAdmin();
+    }
+
+    /**
+     * 取 / 建某商户在指定月份的常驻消费锚 operation（debit/refund 挂账用）。
+     *
+     * 每个商户每自然月一个锚（is_consumption=1、不挂 tag → 基础 PAP 为 0），
+     * 让消费按交易月归集，从而复用现有「按 paps.join_time 归月」的统计而无需改动。
+     * 锚为系统记录、无归属用户（user_id / fc_character_id 占位 0）。
+     * consumption_key '<商户>:<YYYY-MM>' 唯一：跨用户并发首笔时另一请求撞唯一约束 → 复用已建锚。
+     */
+    public static function standingFor(string $merchant, Carbon $when): self
+    {
+        $key = sprintf('%s:%s', $merchant, $when->format('Y-m'));
+        $title = sprintf('[消费] %s %s', $merchant, $when->format('Y-m'));
+
+        if ($existing = static::where('consumption_key', $key)->first()) {
+            return $existing;
+        }
+
+        try {
+            $operation = new static([
+                'title' => $title,
+                'is_consumption' => true,
+                'consumption_key' => $key,
+            ]);
+            $operation->user_id = 0;          // 系统锚，无归属用户
+            $operation->fc = 'SYSTEM';
+            $operation->fc_character_id = 0;
+            $operation->importance = 0;
+            $operation->start_at = $when->copy()->startOfMonth();
+            $operation->end_at = $when->copy()->endOfMonth();
+            $operation->save();
+
+            return $operation;
+        } catch (UniqueConstraintViolationException) {
+            // 并发竞态：另一请求已抢先建好同键锚，复用之（consumption_key 唯一兜底）
+            return static::where('consumption_key', $key)->firstOrFail();
+        }
     }
 }

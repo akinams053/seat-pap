@@ -36,7 +36,8 @@ class AjaxController
                     $query->orWhereNull('role_name');
                 }
             })
-            ->where('is_cancelled', false);
+            ->where('is_cancelled', false)
+            ->where('is_consumption', false);
 
         return $this->buildOperationDataTable($operations);
     }
@@ -87,7 +88,8 @@ class AjaxController
                 }
             })
             ->where('start_at', '>', carbon()->now())
-            ->where('is_cancelled', false);
+            ->where('is_cancelled', false)
+            ->where('is_consumption', false);
 
         return $this->buildOperationDataTable($operations);
     }
@@ -98,6 +100,7 @@ class AjaxController
     public function getFaded(): mixed
     {
         $operations = Operation::with('tags', 'fleet_commander', 'attendees', 'staging')
+            ->where('is_consumption', false)
             ->where(function ($query): void {
                 $query->where('start_at', '<', carbon()->now())
                     ->where('end_at', '<', carbon()->now());

@@ -34,15 +34,15 @@ class CharacterController extends Controller
 
         // 月度趋势：每月给出出勤 / 消费 / 当前可用三口径（图表默认画出勤 PAP）
         $monthlyPaps = DB::table('kassie_calendar_paps as p')
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'p.operation_id')
+            ->join('calendar_operations as o', 'o.id', '=', 'p.operation_id')
             ->whereIn('p.character_id', $characterIds)
             ->where('p.join_time', '>=', $startDate)
             ->groupBy('p.year', 'p.month')
             ->orderBy('p.year')
             ->orderBy('p.month')
             ->selectRaw('p.year, p.month')
-            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NULL THEN p.value ELSE 0 END), 0) as attendance')
-            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NOT NULL THEN -p.value ELSE 0 END), 0) as consumed')
+            ->selectRaw('COALESCE(SUM(CASE WHEN o.is_consumption = 0 THEN p.value ELSE 0 END), 0) as attendance')
+            ->selectRaw('COALESCE(SUM(CASE WHEN o.is_consumption = 1 THEN -p.value ELSE 0 END), 0) as consumed')
             ->selectRaw('COALESCE(SUM(p.value), 0) as available')
             ->get();
 
@@ -93,7 +93,7 @@ class CharacterController extends Controller
     private function papBreakdown(array $characterIds, \Carbon\Carbon $startDate, array $conditions): array
     {
         $query = DB::table('kassie_calendar_paps as p')
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'p.operation_id')
+            ->join('calendar_operations as o', 'o.id', '=', 'p.operation_id')
             ->whereIn('p.character_id', $characterIds)
             ->where('p.join_time', '>=', $startDate);
 
@@ -102,8 +102,8 @@ class CharacterController extends Controller
         }
 
         $row = $query
-            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NULL THEN p.value ELSE 0 END), 0) as attendance')
-            ->selectRaw('COALESCE(SUM(CASE WHEN l.id IS NOT NULL THEN -p.value ELSE 0 END), 0) as consumed')
+            ->selectRaw('COALESCE(SUM(CASE WHEN o.is_consumption = 0 THEN p.value ELSE 0 END), 0) as attendance')
+            ->selectRaw('COALESCE(SUM(CASE WHEN o.is_consumption = 1 THEN -p.value ELSE 0 END), 0) as consumed')
             ->selectRaw('COALESCE(SUM(p.value), 0) as available')
             ->first();
 
@@ -131,13 +131,13 @@ class CharacterController extends Controller
 
     private function getGlobalGroupedRanking(\Carbon\Carbon $startDate, array $conditions): Collection
     {
-        // 荣誉榜按出勤 PAP 排（普通行动最终值，排除抽奖消费）；聚合别名不能进 ORDER BY，写完整表达式
-        $attendanceExpr = 'SUM(CASE WHEN l.id IS NULL THEN kassie_calendar_paps.value ELSE 0 END)';
+        // 荣誉榜按出勤 PAP 排（普通行动最终值，排除消费）；聚合别名不能进 ORDER BY，写完整表达式
+        $attendanceExpr = 'SUM(CASE WHEN o.is_consumption = 0 THEN kassie_calendar_paps.value ELSE 0 END)';
 
         $query = DB::table('kassie_calendar_paps')
             ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
             ->leftJoin('users as u', 'rt.user_id', '=', 'u.id')
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'kassie_calendar_paps.operation_id')
+            ->join('calendar_operations as o', 'o.id', '=', 'kassie_calendar_paps.operation_id')
             ->where('kassie_calendar_paps.join_time', '>=', $startDate);
 
         foreach ($conditions as [$column, $value]) {

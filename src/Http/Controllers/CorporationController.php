@@ -23,18 +23,20 @@ use Seat\Web\Http\Controllers\Controller;
  * 阶段 7：军团 PAP 统计统一出勤 / 消费 / 当前可用三口径（带符号定义，见计划 §11），
  * 并以全局 PAP 起始日（Pap::statisticsStartDate()）为统计起点。
  *
- * 抽奖 operation 通过 LEFT JOIN kassie_calendar_lotteries(l) 识别：
- *   出勤  = SUM(普通行动 value)            l.id IS NULL
- *   消费  = SUM(-抽奖行动 value)           l.id IS NOT NULL
+ * 消费 operation 通过 calendar_operations.is_consumption(o) 识别：
+ *   出勤  = SUM(普通行动 value)            o.is_consumption = 0
+ *   消费  = SUM(-消费行动 value)           o.is_consumption = 1
  *   可用  = SUM(全部 value)                出勤 - 消费 恒等
+ *
+ * 用到 ATTENDANCE/CONSUMED_EXPR 的查询必须 join calendar_operations as o。
  *
  * @package Seat\Kassie\Calendar\Http\Controllers
  */
 class CorporationController extends Controller
 {
     // 带符号三口径表达式（用于 SELECT / ORDER BY；MySQL 不允许 ORDER BY 引用聚合别名）
-    private const ATTENDANCE_EXPR = 'SUM(CASE WHEN l.id IS NULL THEN kassie_calendar_paps.value ELSE 0 END)';
-    private const CONSUMED_EXPR = 'SUM(CASE WHEN l.id IS NOT NULL THEN -kassie_calendar_paps.value ELSE 0 END)';
+    private const ATTENDANCE_EXPR = 'SUM(CASE WHEN o.is_consumption = 0 THEN kassie_calendar_paps.value ELSE 0 END)';
+    private const CONSUMED_EXPR = 'SUM(CASE WHEN o.is_consumption = 1 THEN -kassie_calendar_paps.value ELSE 0 END)';
     private const AVAILABLE_EXPR = 'SUM(kassie_calendar_paps.value)';
 
     /**
@@ -56,7 +58,7 @@ class CorporationController extends Controller
 
         $trend = DB::table('kassie_calendar_paps')
             ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'kassie_calendar_paps.operation_id')
+            ->join('calendar_operations as o', 'o.id', '=', 'kassie_calendar_paps.operation_id')
             ->where('ca.corporation_id', $corporation_id)
             ->where('kassie_calendar_paps.year', $year)
             ->where('kassie_calendar_paps.join_time', '>=', $startDate)
@@ -79,7 +81,7 @@ class CorporationController extends Controller
             ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
             ->leftJoin('refresh_tokens as rt', 'kassie_calendar_paps.character_id', '=', 'rt.character_id')
             ->leftJoin('users as u', 'rt.user_id', '=', 'u.id')
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'kassie_calendar_paps.operation_id')
+            ->join('calendar_operations as o', 'o.id', '=', 'kassie_calendar_paps.operation_id')
             ->where('ca.corporation_id', $corporationId)
             ->where('kassie_calendar_paps.join_time', '>=', $startDate);
 
@@ -105,13 +107,13 @@ class CorporationController extends Controller
 
     private function getTypeDistribution(int $corporationId, \Carbon\Carbon $startDate, int $year, ?int $month = null): Collection
     {
-        // 类型分布只反映「出勤 PAP 的构成」，抽奖是消耗、与收入不同层级，排除抽奖 operation 不入饼图
+        // 类型分布只反映「出勤 PAP 的构成」，消费是消耗、与收入不同层级，排除消费 operation 不入饼图
         $query = DB::table('kassie_calendar_paps')
             ->join('character_affiliations as ca', 'kassie_calendar_paps.character_id', '=', 'ca.character_id')
             ->join('calendar_tag_operation as cto', 'cto.operation_id', '=', 'kassie_calendar_paps.operation_id')
             ->join('calendar_tags as ct', 'ct.id', '=', 'cto.tag_id')
-            ->leftJoin('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'kassie_calendar_paps.operation_id')
-            ->whereNull('l.id')
+            ->join('calendar_operations as o', 'o.id', '=', 'kassie_calendar_paps.operation_id')
+            ->where('o.is_consumption', 0)
             ->where('ca.corporation_id', $corporationId)
             ->where('kassie_calendar_paps.year', $year)
             ->where('kassie_calendar_paps.join_time', '>=', $startDate);
@@ -168,7 +170,8 @@ class CorporationController extends Controller
 
         $query = DB::table('kassie_calendar_paps as p')
             ->join('character_affiliations as ca', 'p.character_id', '=', 'ca.character_id')
-            ->join('kassie_calendar_lotteries as l', 'l.operation_id', '=', 'p.operation_id')
+            ->join('calendar_operations as o', 'o.id', '=', 'p.operation_id')
+            ->where('o.is_consumption', 1)
             ->where('ca.corporation_id', $corporation_id)
             ->where('p.year', $year)
             ->where('p.join_time', '>=', $startDate);
@@ -177,9 +180,11 @@ class CorporationController extends Controller
             $query->where('p.month', $month);
         }
 
+        // 按消费锚 operation 聚合（每商户每月一行；历史抽奖各自独立 operation 保留逐个明细）。
+        // 逐「场次」(ref_group) 的更细明细见外部消费审查页。
         $items = $query
-            ->groupBy('l.id', 'l.title')
-            ->selectRaw('l.title')
+            ->groupBy('o.id', 'o.title')
+            ->selectRaw('o.title')
             ->selectRaw('SUM(-p.value) as consumed')
             ->havingRaw('SUM(-p.value) <> 0')
             ->orderByRaw('SUM(-p.value) DESC')

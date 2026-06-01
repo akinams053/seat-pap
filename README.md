@@ -28,7 +28,7 @@
 - 军团维度：
   - 月度出勤 PAP 趋势折线图（可按年份筛选）
   - 出勤 PAP 类型分布饼图（可选某月或全部月份）
-  - 军团消费 PAP 汇总（可按月 / 按年，含按抽奖明细）
+  - 军团消费 PAP 汇总（可按月 / 按年，含逐场次明细）
   - 排名榜（按出勤 PAP 排，可按年月筛选；导出 Excel 含出勤 / 消费 / 入账 / 累计可用余额）
 
 ### PAP API
@@ -80,6 +80,7 @@
 - [`docs/02-整体计划.md`](docs/02-整体计划.md)：抽奖整体设计与阶段 7 统计口径设计 / 决策。
 - [`docs/03-近期计划.md`](docs/03-近期计划.md)：阶段 7 落地步骤与宿主验证清单。
 - [`docs/04-交接说明.md`](docs/04-交接说明.md)：当前状态、关键提交、测试服约定与待办。
+- [`docs/05-抽奖外移与PAP银行化设计.md`](docs/05-抽奖外移与PAP银行化设计.md)：抽奖外移 / PAP 银行化设计（当前开发方向）。
 
 ## 分支说明
 
@@ -88,9 +89,10 @@
 | 分支 | Composer 版本约束 | 内容 |
 |---|---|---|
 | `localization` | `dev-localization` | 基础版（默认分支）：operation / PAP 采集 / 行动审查 / 角色·军团统计 / 商店 API / MOTD。**尚不含** PAP 超网抽奖与阶段 7 三口径统计。 |
-| `docs/pap-hypernet-lottery-plan` | `dev-docs/pap-hypernet-lottery-plan` | 完整版：在基础版之上增加 **PAP 超网抽奖**、**出勤 / 消费 / 当前可用三口径统计**、**全局可配置 PAP 起始日**。功能已在测试服验证。 |
+| `docs/pap-hypernet-lottery-plan` | `dev-docs/pap-hypernet-lottery-plan` | 完整版（抽奖内置）：在基础版之上增加 **PAP 超网抽奖**、**出勤 / 消费 / 当前可用三口径统计**、**全局可配置 PAP 起始日**。功能已在测试服验证。 |
+| `feat/pap-bank-externalize` | `dev-feat/pap-bank-externalize` | 银行化版（开发中）：在完整版之上把**抽奖外移**到外部服务、SeAT 退成 PAP 中央账本（`debit` / `refund` 写接口 + 独立写 token）、新增**消费审查**页、退役内置抽奖。**阶段 1+2 代码完成，待测试服验证。** |
 
-> 截至目前，完整功能仍在 `docs/pap-hypernet-lottery-plan` 分支，**尚未合并回默认分支 `localization`**。两者合并后，`dev-localization` 即包含全部功能。
+> 截至目前，完整功能仍在 `docs/pap-hypernet-lottery-plan` 分支，**尚未合并回默认分支 `localization`**。`feat/pap-bank-externalize` 为最新的「抽奖外移 / 银行化」开发分支，待测试服验证后再考虑发布。
 >
 > Packagist 页面：https://packagist.org/packages/akinams053/seat-pap
 
@@ -326,6 +328,18 @@ curl "https://your-seat-domain/api/calendar/paps/2118151113?token=YOUR_TOKEN"
 | 401 | Token 错误或缺失 |
 | 404 | 角色未找到（仅单角色查询） |
 | 503 | 未配置 API Token |
+
+#### 写接口：实时扣款 / 退款（debit / refund）
+
+供外部抽奖 / 商店在交易时实时扣减或退还 PAP，**独立写 token** 鉴权（设置页「PAP 写接口设置」生成，与只读 token 分开存放、可单独轮换）。
+
+```
+POST /api/calendar/paps/debit    { character_id, amount, merchant, idempotency_key, ref_group?, reason? }
+POST /api/calendar/paps/refund   同上（idempotency_key 独立）
+Authorization: Bearer <WRITE_TOKEN>
+```
+
+响应回带扣后余额 `balance_after`；**幂等**（同 `idempotency_key` 只扣一次）；SeAT 按用户串行化扣减防双花。外部**不要为显示余额轮询 `GET /paps`**——靠响应的 `balance_after` 刷新本地缓存即可。完整协议（字段 / 错误码 / 减负铁律）见 [`docs/01-项目说明.md`](docs/01-项目说明.md) §6.6。
 
 ### ESI Scope 配置
 

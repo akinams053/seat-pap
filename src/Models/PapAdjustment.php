@@ -14,7 +14,8 @@ class PapAdjustment extends Model
     protected $table = 'kassie_calendar_pap_adjustments';
 
     protected $fillable = [
-        'operation_id', 'character_id', 'value', 'reason', 'created_by_character_id', 'created_at',
+        'operation_id', 'character_id', 'value', 'source', 'external_ref', 'ref_group',
+        'reason', 'created_by_character_id', 'created_at',
     ];
 
     protected $casts = [

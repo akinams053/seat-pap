@@ -3,6 +3,7 @@
 namespace Seat\Kassie\Calendar;
 
 use Seat\Kassie\Calendar\Http\Middleware\ApiTokenMiddleware;
+use Seat\Kassie\Calendar\Http\Middleware\ApiWriteTokenMiddleware;
 use Seat\Services\AbstractSeatPlugin;
 
 /**
@@ -14,6 +15,7 @@ class CalendarServiceProvider extends AbstractSeatPlugin
     public function boot(): void
     {
         $this->app['router']->aliasMiddleware('calendar.api.token', ApiTokenMiddleware::class);
+        $this->app['router']->aliasMiddleware('calendar.api.write_token', ApiWriteTokenMiddleware::class);
 
         $this->addRoutes();
         $this->addViews();

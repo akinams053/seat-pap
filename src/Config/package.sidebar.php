@@ -23,10 +23,17 @@ return [
                 'permission' => 'calendar.view'
             ],
             [
+                'name' => 'ConsumptionAudit',
+                'label' => 'calendar::seat.consumption_audit',
+                'icon' => 'fas fa-coins',
+                'route' => 'audit.consumption.index',
+                'permission' => 'calendar.view'
+            ],
+            [
                 'name' => 'Lottery',
                 'label' => 'calendar::lottery.menu_title',
                 'icon' => 'fas fa-dice',
-                'route' => 'lottery.index',
+                'route' => 'calendar.lottery.redirect',
                 'permission' => 'calendar.view'
             ],
             [
