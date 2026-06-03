@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Laravel 10.50.x**
 - **PHP 8.4.x**
-- **MySQL**
+- **MariaDB 10.6.23**（测试服实测；`.env` 写 `DB_CONNECTION=mysql`，但实际引擎是 MariaDB —— 下方「聚合别名 gotcha」对 MariaDB 同样成立）
 - **Redis**（用于 cache / queue）
 
 当前插件**尚未安装**到目标服务器。后续在本仓库中的分析、修改和设计，都应基于“面向现代 SeAT 5 宿主重构”的前提，而不是假设旧版部署方式仍然成立。

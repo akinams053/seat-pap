@@ -185,6 +185,8 @@ Schema::table('calendar_operations', function (Blueprint $t) {
 - 因 standing op `is_consumption=1`，其 paps 自动被三口径归为消费，无需再特判商户。
 - **它是账本锚，不是「行动」**：外部抽奖/商店都不再是 operation。每用户每商户只此一行 `Pap`（聚合余额用），**逐场/逐单明细全在 `pap_adjustments`**（`source` + `ref_group` + `reason`），由「外部消费审查」页按 `ref_group` 还原场次（见 §9.3）。
 
+> ⚠️ **实现已发现 P0 bug（2026-06-03 测试服 MariaDB 实测）**：`Operation::standingFor()`（`src/Models/Operation.php:270`）建这个 standing 锚时把 `user_id=0`、`fc_character_id=0` 当"系统占位"，但 `calendar_operations.user_id` 有外键 → `users.id`，库里无 id=0 用户 → **debit/refund 必 `500`、完全不可用**。本地 `php -l` 查不出，只有真实数据库（有外键）才暴露。**修复**：`standingFor` 改用调用者真实 `$user->id`，并确认 `fc_character_id=0`(:272) 是否同样撞 characters 外键。详见 [`04-交接说明.md`](04-交接说明.md) §1.0、[`06-API使用说明.md`](06-API使用说明.md) §9。
+
 > 备选（未采纳）：每笔外部消费合成临时 operation——会往 operation 列表塞大量机器生成行，越积越脏，故不取。
 > 备选（未采纳）：每场抽奖经 API 注册成一个 operation——即便如此 SeAT 仍拿不到节点/中奖数据（在外部），救不回玩法审查，却重新耦合每场抽奖，故不取。
 
