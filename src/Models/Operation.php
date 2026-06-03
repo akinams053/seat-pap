@@ -249,10 +249,12 @@ class Operation extends Model
      *
      * 每个商户每自然月一个锚（is_consumption=1、不挂 tag → 基础 PAP 为 0），
      * 让消费按交易月归集，从而复用现有「按 paps.join_time 归月」的统计而无需改动。
-     * 锚为系统记录、无归属用户（user_id / fc_character_id 占位 0）。
+     * user_id 取「当月该商户首个消费者」的 SeAT user（calendar_operations.user_id 是 NOT NULL +
+     * 外键到 users，不能用 0 占位）；fc_character_id 留 NULL（系统锚无 FC，该列可空、外键不约束 NULL）。
+     * owner 仅占位，不影响统计（统计按 paps.character_id + is_consumption）。
      * consumption_key '<商户>:<YYYY-MM>' 唯一：跨用户并发首笔时另一请求撞唯一约束 → 复用已建锚。
      */
-    public static function standingFor(string $merchant, Carbon $when): self
+    public static function standingFor(string $merchant, Carbon $when, int $ownerId): self
     {
         $key = sprintf('%s:%s', $merchant, $when->format('Y-m'));
         $title = sprintf('[消费] %s %s', $merchant, $when->format('Y-m'));
@@ -267,9 +269,9 @@ class Operation extends Model
                 'is_consumption' => true,
                 'consumption_key' => $key,
             ]);
-            $operation->user_id = 0;          // 系统锚，无归属用户
+            $operation->user_id = $ownerId;     // 真实 user（NOT NULL + 外键到 users），不能用 0
             $operation->fc = 'SYSTEM';
-            $operation->fc_character_id = 0;
+            $operation->fc_character_id = null;  // 系统锚无 FC；该列可空，外键不约束 NULL
             $operation->importance = 0;
             $operation->start_at = $when->copy()->startOfMonth();
             $operation->end_at = $when->copy()->endOfMonth();

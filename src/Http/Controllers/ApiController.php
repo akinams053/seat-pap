@@ -163,9 +163,9 @@ class ApiController
                 ], 409);
             }
 
-            $adjustment = DB::transaction(function () use ($isDebit, $amount, $merchant, $key, $refGroup, $reason, $mainCharacterId): PapAdjustment {
+            $adjustment = DB::transaction(function () use ($isDebit, $amount, $merchant, $key, $refGroup, $reason, $mainCharacterId, $user): PapAdjustment {
                 $now = carbon();
-                $standing = Operation::standingFor($merchant, $now);
+                $standing = Operation::standingFor($merchant, $now, $user->id);
 
                 // 确保该商户当月锚下主角色的 paps 行存在（ship_type_id NOT NULL，占位 0）
                 Pap::firstOrCreate(
