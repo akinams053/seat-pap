@@ -6,3 +6,4 @@ composer.lock
 .buildpath
 .ace-tool/
 audit-preview.html
+.claude/settings.local.json
