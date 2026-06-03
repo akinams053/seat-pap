@@ -2,7 +2,7 @@
 
 > 面向**外部项目开发者**（抽奖服务、商店服务等）的对接文档。
 >
-> 最新设计以 [`07-抽奖重做为行动设计.md`](07-抽奖重做为行动设计.md) 为准：**抽奖不再购买时实时 debit/refund**，而是在开奖后通过 `settle` 一次性结算为 SeAT operation，并回到行动审查页纠错。`debit/refund` 仍保留，但当前语义降级为**未来 PAP 商店预留接口**。
+> 最新设计见 [`05-抽奖外移与PAP银行化设计.md`](05-抽奖外移与PAP银行化设计.md)：**抽奖不再购买时实时 debit/refund**，而是在开奖后通过 `settle` 一次性结算为 SeAT operation，并回到行动审查页纠错。`debit/refund` 仍保留，但当前语义降级为**未来 PAP 商店预留接口**。
 
 ---
 
@@ -338,21 +338,23 @@ GET /api/calendar/paps?characters=2118151113,2118151114,2118151115
 
 ## 9. 当前实现状态
 
-截至 2026-06-03，`feat/pap-bank-externalize` 的最新目标状态为：
+截至 2026-06-03，`feat/pap-bank-externalize` 当前实现状态为：
 
 - 读 API、写 token、JWT 跳转保留。
-- 抽奖主接口改为 `POST /api/calendar/paps/lottery/settle`。
-- `debit/refund` 保留为未来商店预留。
+- 抽奖主接口已改为 `POST /api/calendar/paps/lottery/settle`。
+- `debit/refund` 保留为未来商店预留，当前抽奖不调用。
 - 外部消费审查页已废弃；抽奖 operation 回到行动审查页。
 - 统计口径不变：出勤 − 消费 = 可用，统计/API 直接读 `paps.value`。
 
-测试服联调重点：
+测试服已验证：
 
 1. `settle` 能创建 operation、挂 lottery tag、批量写负值 adjustment。
 2. 同一 `idempotency_key` 重试只返回旧 `operation_id`，不重复扣。
-3. 余额不足仍可 settle 成负值。
-4. `/calendar/audit` 显示抽奖 operation，但不显示商店 standing operation。
-5. `GET /api/calendar/paps/{character_id}?breakdown=1` 的恒等式保持成立。
+3. 同一 `ref_group` 不同 payload 返回 409。
+4. 余额不足可 settle 成负值。
+5. `/calendar/audit` 可显示抽奖 operation，Web UI 审查弹窗显示正确。
+6. 旧 `/calendar/audit/consumption` 返回 404。
+7. `GET /api/calendar/paps/{character_id}?breakdown=1` 的恒等式保持成立。
 
 ---
 

@@ -38,17 +38,17 @@
 - Token 认证，无需用户二次登录或 SSO 授权
 - 在 **Calendar → Settings** 页面生成和管理 API Token
 
-### PAP 商店跳转
-- 侧边栏 **PAP 商店** 入口（需要 `calendar.view` 权限）
-- 跳转时携带 JWT 令牌（含用户 ID、主角色信息），商店用 API Token 验证签名
-- 管理员在设置页面配置商店地址
+### PAP 商店 / 超网抽奖跳转
+- 侧边栏 **PAP 商店** 与 **超网抽奖** 入口（需要 `calendar.view` 权限）
+- 跳转时携带 JWT 令牌（含用户 ID、主角色信息；抽奖跳转额外带余额快照），外部服务用 API Token 验证签名
+- 管理员在设置页面配置商店地址与抽奖地址
 
 ### 行动审查（Operation Audit）
-- 侧边栏 **行动审查** 入口，列出所有已发放 PAP 的行动
+- 侧边栏 **行动审查** 入口，列出普通出勤行动与抽奖结算行动；商店消费锚不会混入
 - 列表显示 PAP 发放时间（精确到秒）、FC、单 PAP、人数、总额，列可排序
-- 拥有 `calendar.create` 权限的用户可对任意可见行动点击「PAP 审查」查看舰队成员快照（含船型、星系、加入时间）
+- 拥有 `calendar.create` 权限的用户可对任意可见行动点击「PAP 审查」查看成员快照（含船型、星系、加入时间）
 - 支持对单个成员奖励或扣除 PAP，类型自动继承自本次行动，必须填写理由
-- 调整结果实时回写，所有统计页面与外部商店 API 自动同步
+- 调整结果实时回写，所有统计页面与外部 API 自动同步
 - 完整审计轨迹：每次奖惩记录操作人（SeAT 用户主角色）、时间、理由
 
 ### MOTD 自定义
@@ -76,23 +76,24 @@
 
 更多指南和功能设计文档见 [`docs/README.md`](docs/README.md)：
 
-- [`docs/01-项目说明.md`](docs/01-项目说明.md)：项目能力、FC 操作指南、PAP 商店对接协议。
-- [`docs/02-整体计划.md`](docs/02-整体计划.md)：抽奖整体设计与阶段 7 统计口径设计 / 决策。
-- [`docs/03-近期计划.md`](docs/03-近期计划.md)：阶段 7 落地步骤与宿主验证清单。
-- [`docs/04-交接说明.md`](docs/04-交接说明.md)：当前状态、关键提交、测试服约定与待办。
-- [`docs/05-抽奖外移与PAP银行化设计.md`](docs/05-抽奖外移与PAP银行化设计.md)：抽奖外移 / PAP 银行化设计（当前开发方向）。
+- [`docs/01-项目说明.md`](docs/01-项目说明.md)：当前功能、FC 操作指南、PAP 统计、行动审查与 API 概要。
+- [`docs/02-整体计划.md`](docs/02-整体计划.md)：PAP 三口径统计、主角色聚合与历史内置抽奖设计背景。
+- [`docs/03-近期计划.md`](docs/03-近期计划.md)：当前分支剩余收尾、回归与上线前检查清单。
+- [`docs/04-交接说明.md`](docs/04-交接说明.md)：当前分支、测试服、部署方式、验证记录与接手动作。
+- [`docs/05-抽奖外移与PAP银行化设计.md`](docs/05-抽奖外移与PAP银行化设计.md)：当前有效设计：抽奖外移，开奖后 settle 成 SeAT operation，进入行动审查。
+- [`docs/06-API使用说明.md`](docs/06-API使用说明.md)：外部抽奖 / 商店对接 API 文档。
 
 ## 分支说明
 
-本仓库通过 Packagist 安装，需用「版本约束」明确指定分支。当前有两个相关分支：
+本仓库通过 Packagist 安装，需用「版本约束」明确指定分支。当前主要分支：
 
 | 分支 | Composer 版本约束 | 内容 |
 |---|---|---|
-| `localization` | `dev-localization` | 基础版（默认分支）：operation / PAP 采集 / 行动审查 / 角色·军团统计 / 商店 API / MOTD。**尚不含** PAP 超网抽奖与阶段 7 三口径统计。 |
-| `docs/pap-hypernet-lottery-plan` | `dev-docs/pap-hypernet-lottery-plan` | 完整版（抽奖内置）：在基础版之上增加 **PAP 超网抽奖**、**出勤 / 消费 / 当前可用三口径统计**、**全局可配置 PAP 起始日**。功能已在测试服验证。 |
-| `feat/pap-bank-externalize` | `dev-feat/pap-bank-externalize` | 银行化版（开发中）：在完整版之上把**抽奖外移**到外部服务、SeAT 退成 PAP 中央账本（`debit` / `refund` 写接口 + 独立写 token）、新增**消费审查**页、退役内置抽奖。**阶段 1+2 代码完成，待测试服验证。** |
+| `localization` | `dev-localization` | 基础版（默认分支）：operation / PAP 采集 / 行动审查 / 角色·军团统计 / 商店 API / MOTD。 |
+| `docs/pap-hypernet-lottery-plan` | `dev-docs/pap-hypernet-lottery-plan` | 历史完整版（内置抽奖）：已完成并测试服验证，但当前抽奖方向已外移。 |
+| `feat/pap-bank-externalize` | `dev-feat/pap-bank-externalize` | 当前验证版：抽奖外移；开奖后通过 `settle` 结算为 SeAT operation 并进入行动审查；三口径统计 / 主角色聚合 / API 已在测试服验证。 |
 
-> 截至目前，完整功能仍在 `docs/pap-hypernet-lottery-plan` 分支，**尚未合并回默认分支 `localization`**。`feat/pap-bank-externalize` 为最新的「抽奖外移 / 银行化」开发分支，待测试服验证后再考虑发布。
+> 当前最新可验证功能在 `feat/pap-bank-externalize`。是否合并回默认分支 `localization` / 发布正式版本，由维护者决定。
 >
 > Packagist 页面：https://packagist.org/packages/akinams053/seat-pap
 
@@ -104,8 +105,8 @@
 cd /var/www/seat
 
 # 安装插件（需要 sudo 以写入 vendor 目录）
-# 完整版（推荐，含抽奖与阶段 7 统计）：
-sudo composer require akinams053/seat-pap:dev-docs/pap-hypernet-lottery-plan
+# 当前验证版（抽奖外移 + settle 成行动）：
+sudo composer require akinams053/seat-pap:dev-feat/pap-bank-externalize
 # 或基础版：
 # sudo composer require akinams053/seat-pap:dev-localization
 
@@ -147,14 +148,15 @@ sudo -u www-data php artisan cache:clear
 
 ## 切换分支版本
 
-要把已安装的版本从一个分支切到另一个（例如基础版 → 完整版），用目标分支的版本约束重新 `require`：
+要把已安装的版本从一个分支切到另一个（例如基础版 → 当前验证版），用目标分支的版本约束重新 `require`：
 
 ```bash
 cd /var/www/seat
-sudo composer require akinams053/seat-pap:dev-docs/pap-hypernet-lottery-plan --no-cache
-php artisan migrate
+sudo composer require akinams053/seat-pap:dev-feat/pap-bank-externalize --no-cache
+sudo -u www-data php artisan migrate --force
 sudo -u www-data php artisan view:clear
 sudo -u www-data php artisan route:clear
+sudo -u www-data php artisan cache:clear
 ```
 
 ## 使用说明
@@ -329,17 +331,32 @@ curl "https://your-seat-domain/api/calendar/paps/2118151113?token=YOUR_TOKEN"
 | 404 | 角色未找到（仅单角色查询） |
 | 503 | 未配置 API Token |
 
-#### 写接口：实时扣款 / 退款（debit / refund）
+#### 抽奖开奖结算接口（settle）
 
-供外部抽奖 / 商店在交易时实时扣减或退还 PAP，**独立写 token** 鉴权（设置页「PAP 写接口设置」生成，与只读 token 分开存放、可单独轮换）。
+外部抽奖服务在开奖后调用一次，SeAT 会把整场抽奖结算成一个可审查的 operation：
 
-```
-POST /api/calendar/paps/debit    { character_id, amount, merchant, idempotency_key, ref_group?, reason? }
-POST /api/calendar/paps/refund   同上（idempotency_key 独立）
+```http
+POST /api/calendar/paps/lottery/settle
 Authorization: Bearer <WRITE_TOKEN>
 ```
 
-响应回带扣后余额 `balance_after`；**幂等**（同 `idempotency_key` 只扣一次）；SeAT 按用户串行化扣减防双花。外部**不要为显示余额轮询 `GET /paps`**——靠响应的 `balance_after` 刷新本地缓存即可。完整协议（字段 / 错误码 / 减负铁律）见 [`docs/01-项目说明.md`](docs/01-项目说明.md) §6.6。
+```json
+{
+  "ref_group": "lottery:3",
+  "settled_by_character_id": 2118151113,
+  "title": "第3期超网抽奖",
+  "idempotency_key": "lottery-3-settle",
+  "participants": [
+    {"character_id": 2118151113, "amount": 10.00, "reason": "押注节点 #03, #07"}
+  ]
+}
+```
+
+同 payload 重试不会重复扣；同 `ref_group` 不同 payload 返回 409。完整协议见 [`docs/06-API使用说明.md`](docs/06-API使用说明.md)。
+
+#### 商店预留写接口（debit / refund）
+
+`POST /api/calendar/paps/debit` 与 `POST /api/calendar/paps/refund` 当前不用于抽奖，只保留给未来 PAP 商店恢复。
 
 ### ESI Scope 配置
 
