@@ -245,8 +245,9 @@ class Operation extends Model
     }
 
     /**
-     * 取 / 建某商户在指定月份的常驻消费锚 operation（debit/refund 挂账用）。
+     * 取 / 建某商户在指定月份的常驻消费锚 operation（未来商店 debit/refund 挂账用）。
      *
+     * 抽奖不再调用本方法；开奖后通过 lottery settle 创建一场一条的抽奖 operation。
      * 每个商户每自然月一个锚（is_consumption=1、不挂 tag → 基础 PAP 为 0），
      * 让消费按交易月归集，从而复用现有「按 paps.join_time 归月」的统计而无需改动。
      * user_id 取「当月该商户首个消费者」的 SeAT user（calendar_operations.user_id 是 NOT NULL +

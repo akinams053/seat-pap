@@ -21,12 +21,17 @@ Route::group([
 
 });
 
-// PAP 写接口 — 独立写 token，供外部抽奖/商店实时扣款、退款
+// PAP 写接口 — 独立写 token；抽奖走 settle，debit/refund 仅保留给未来商店
 Route::group([
     'namespace' => 'Seat\\Kassie\\Calendar\\Http\\Controllers',
     'middleware' => ['api', 'calendar.api.write_token'],
     'prefix' => 'api/calendar',
 ], function (): void {
+
+    Route::post('/paps/lottery/settle', [
+        'as' => 'api.calendar.paps.lottery.settle',
+        'uses' => 'ApiController@lotterySettle',
+    ]);
 
     Route::post('/paps/debit', [
         'as' => 'api.calendar.paps.debit',
@@ -212,21 +217,6 @@ Route::group([
         Route::get('/operations', [
             'as' => 'audit.operations.json',
             'uses' => 'AuditController@operationsJson',
-        ]);
-
-        Route::get('/consumption', [
-            'as' => 'audit.consumption.index',
-            'uses' => 'AuditController@consumptionIndex',
-        ]);
-
-        Route::get('/consumption/json', [
-            'as' => 'audit.consumption.json',
-            'uses' => 'AuditController@consumptionJson',
-        ]);
-
-        Route::get('/consumption/detail', [
-            'as' => 'audit.consumption.detail',
-            'uses' => 'AuditController@consumptionDetailJson',
         ]);
 
     });

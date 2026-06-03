@@ -10,6 +10,7 @@ use Illuminate\View\View;
 use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\Sde\InvType;
 use Seat\Eveapi\Models\Sde\MapDenormalize;
+use Seat\Kassie\Calendar\Models\Lottery;
 use Seat\Kassie\Calendar\Models\Operation;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Kassie\Calendar\Models\PapAdjustment;
@@ -24,10 +25,10 @@ class AuditController extends Controller
      */
     private const SORT_COLUMNS = [
         'title'        => 'o.title',
-        'fleet_end_at' => 'COALESCE(MAX(p.created_at), o.end_at)',
-        'pap_value'    => 'MAX(t.quantifier)',
-        'member_count' => 'COUNT(DISTINCT p.character_id)',
-        'pap_total'    => 'SUM(p.value)',
+        'fleet_end_at' => 'COALESCE(pa.latest_pap_at, o.end_at)',
+        'pap_value'    => 'COALESCE(ta.pap_value, 0)',
+        'member_count' => 'pa.member_count',
+        'pap_total'    => 'pa.pap_total',
     ];
 
     /**
@@ -39,34 +40,58 @@ class AuditController extends Controller
     }
 
     /**
-     * DataTables 服务端：列出已发 PAP 的行动
+     * DataTables 服务端：列出已发 PAP 的行动。
+     *
+     * 07 后行动审查承载两类 operation：普通出勤行动 + 抽奖消费行动。
+     * 商店 standing operation 仍是消费锚，但不挂 lottery tag，因此继续排除。
      */
     public function operationsJson(Request $request): JsonResponse
     {
         $canAudit = auth()->user()->can('calendar.create');
 
+        $papsAggregate = fn() => DB::table('kassie_calendar_paps')
+            ->select('operation_id')
+            ->selectRaw('MAX(created_at) as latest_pap_at')
+            ->selectRaw('COUNT(DISTINCT character_id) as member_count')
+            ->selectRaw('COALESCE(SUM(value), 0) as pap_total')
+            ->groupBy('operation_id');
+
+        $tagsAggregate = fn() => DB::table('calendar_tag_operation as tx')
+            ->join('calendar_tags as t', 't.id', '=', 'tx.tag_id')
+            ->select('tx.operation_id')
+            ->selectRaw('COALESCE(MAX(t.quantifier), 0) as pap_value')
+            ->selectRaw("MAX(CASE WHEN t.analytics = 'lottery' THEN 1 ELSE 0 END) as is_lottery")
+            ->groupBy('tx.operation_id');
+
+        $visibleAuditOperations = function ($query): void {
+            $query->where('o.is_consumption', 0)
+                ->orWhere('ta.is_lottery', 1)
+                ->orWhereNotNull('lo.operation_id');
+        };
+
         $base = DB::table('calendar_operations as o')
-            ->join('kassie_calendar_paps as p', 'p.operation_id', '=', 'o.id')
-            ->leftJoin('calendar_tag_operation as tx', 'tx.operation_id', '=', 'o.id')
-            ->leftJoin('calendar_tags as t', 't.id', '=', 'tx.tag_id')
+            ->joinSub($papsAggregate(), 'pa', fn($join) => $join->on('pa.operation_id', '=', 'o.id'))
+            ->leftJoinSub($tagsAggregate(), 'ta', fn($join) => $join->on('ta.operation_id', '=', 'o.id'))
+            ->leftJoin('kassie_calendar_lotteries as lo', 'lo.operation_id', '=', 'o.id')
             ->select(
                 'o.id',
                 'o.title',
                 'o.fc',
                 'o.fc_character_id',
                 'o.end_at',
-                DB::raw('MAX(p.created_at) as latest_pap_at'),
-                DB::raw('COUNT(DISTINCT p.character_id) as member_count'),
-                DB::raw('COALESCE(SUM(p.value), 0) as pap_total'),
-                DB::raw('COALESCE(MAX(t.quantifier), 0) as pap_value')
+                'pa.latest_pap_at',
+                'pa.member_count',
+                'pa.pap_total',
+                DB::raw('COALESCE(ta.pap_value, 0) as pap_value'),
+                DB::raw('CASE WHEN COALESCE(ta.is_lottery, 0) = 1 OR lo.operation_id IS NOT NULL THEN 1 ELSE 0 END as is_lottery')
             )
-            ->where('o.is_consumption', 0)
-            ->groupBy('o.id', 'o.title', 'o.fc', 'o.fc_character_id', 'o.end_at');
+            ->where($visibleAuditOperations);
 
         $totalCount = DB::table('calendar_operations as o')
-            ->join('kassie_calendar_paps as p', 'p.operation_id', '=', 'o.id')
-            ->where('o.is_consumption', 0)
-            ->distinct()
+            ->joinSub($papsAggregate(), 'pa', fn($join) => $join->on('pa.operation_id', '=', 'o.id'))
+            ->leftJoinSub($tagsAggregate(), 'ta', fn($join) => $join->on('ta.operation_id', '=', 'o.id'))
+            ->leftJoin('kassie_calendar_lotteries as lo', 'lo.operation_id', '=', 'o.id')
+            ->where($visibleAuditOperations)
             ->count('o.id');
 
         // DataTables 排序参数：order[0][column]=列序号，columns[N][data]=列字段名，order[0][dir]=asc/desc
@@ -74,7 +99,7 @@ class AuditController extends Controller
         $orderDir = strtolower((string) $request->input('order.0.dir', 'desc'));
         $orderDir = in_array($orderDir, ['asc', 'desc'], true) ? $orderDir : 'desc';
         $orderColData = (string) $request->input("columns.$orderColIdx.data", 'fleet_end_at');
-        $orderExpr = self::SORT_COLUMNS[$orderColData] ?? 'MAX(p.created_at)';
+        $orderExpr = self::SORT_COLUMNS[$orderColData] ?? 'COALESCE(pa.latest_pap_at, o.end_at)';
 
         $rows = $base
             ->orderByRaw("$orderExpr IS NULL, $orderExpr $orderDir")
@@ -91,6 +116,7 @@ class AuditController extends Controller
             'member_count' => (int) $r->member_count,
             'pap_value' => (float) $r->pap_value,
             'pap_total' => (float) $r->pap_total,
+            'is_lottery' => (bool) $r->is_lottery,
             'can_audit' => $canAudit,
         ]);
 
@@ -112,6 +138,9 @@ class AuditController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
 
         if (!$operation->isUserGranted(auth()->user()))
+            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
+
+        if (!$this->isAuditOperation($operation))
             return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
 
         $paps = Pap::where('operation_id', $operationId)
@@ -179,11 +208,14 @@ class AuditController extends Controller
         if (!auth()->user()->can('calendar.create'))
             return response()->json(['status' => 'error', 'message' => 'Permission denied.'], 403);
 
-        $operation = Operation::find($operationId);
+        $operation = Operation::with('tags')->find($operationId);
         if (is_null($operation))
             return response()->json(['status' => 'error', 'message' => 'Operation not found.'], 404);
 
         if (!$operation->isUserGranted(auth()->user()))
+            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
+
+        if (!$this->isAuditOperation($operation))
             return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
 
         $operatorCharId = auth()->user()->main_character_id;
@@ -259,6 +291,9 @@ class AuditController extends Controller
         if (!$operation->isUserGranted(auth()->user()))
             return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
 
+        if (!$this->isAuditOperation($operation))
+            return response()->json(['status' => 'error', 'message' => 'Access denied.'], 403);
+
         $validated = $request->validate([
             'character_id' => 'required|integer',
             'value' => 'required|numeric|min:0.01',
@@ -311,88 +346,17 @@ class AuditController extends Controller
     }
 
     /**
-     * 外部消费审查页（资金审查）：玩法审查归外部服务，本页只做资金审查。
+     * 行动审查只允许普通出勤行动和抽奖行动；商店消费锚不能通过直达接口改账。
      */
-    public function consumptionIndex(): Factory|View
+    private function isAuditOperation(Operation $operation): bool
     {
-        return view('calendar::audit.consumption');
-    }
-
-    /**
-     * 消费场次聚合：按 ref_group（回退 op:operation_id）汇总成「一笔订单/场次」。
-     * 数据源 = source <> attendance_audit 的全部账本调整（含历史抽奖、商店、新消费）。
-     */
-    public function consumptionJson(): JsonResponse
-    {
-        $refExpr = "COALESCE(a.ref_group, CONCAT('op:', a.operation_id))";
-
-        $rows = DB::table('kassie_calendar_pap_adjustments as a')
-            ->leftJoin('calendar_operations as o', 'o.id', '=', 'a.operation_id')
-            ->where('a.source', '<>', 'attendance_audit')
-            ->selectRaw("$refExpr as ref_key")
-            ->selectRaw('MIN(a.source) as merchant')
-            ->selectRaw('MIN(o.title) as op_title')
-            ->selectRaw('COUNT(DISTINCT a.character_id) as participants')
-            ->selectRaw('SUM(CASE WHEN a.value < 0 THEN -a.value ELSE 0 END) as debited')
-            ->selectRaw('SUM(CASE WHEN a.value > 0 THEN a.value ELSE 0 END) as refunded')
-            ->selectRaw('SUM(-a.value) as net_consumed')
-            ->selectRaw('MAX(a.created_at) as last_at')
-            ->groupByRaw($refExpr)
-            // 聚合别名不能进 HAVING/ORDER BY，写完整表达式
-            ->havingRaw('SUM(-a.value) <> 0')
-            ->orderByRaw('MAX(a.created_at) DESC')
-            ->get();
-
-        return response()->json([
-            'data' => $rows->map(fn($r) => [
-                'ref_key' => $r->ref_key,
-                'merchant' => $r->merchant,
-                'title' => $r->op_title,
-                'participants' => (int) $r->participants,
-                'debited' => (float) $r->debited,
-                'refunded' => (float) $r->refunded,
-                'net_consumed' => (float) $r->net_consumed,
-                'last_at' => $r->last_at,
-            ])->values(),
-        ]);
-    }
-
-    /**
-     * 单场次逐笔流水：?ref=<ref_group> 或 ?ref=op:<operation_id>（历史无 ref_group 的回退键）。
-     */
-    public function consumptionDetailJson(Request $request): JsonResponse
-    {
-        $ref = (string) $request->query('ref', '');
-        if ($ref === '') {
-            return response()->json(['status' => 'error', 'message' => 'Missing ref.'], 400);
+        if (! $operation->is_consumption) {
+            return true;
         }
 
-        $query = DB::table('kassie_calendar_pap_adjustments as a')
-            ->where('a.source', '<>', 'attendance_audit');
+        $hasLotteryTag = $operation->relationLoaded('tags')
+            && $operation->tags->contains(fn($tag) => $tag->analytics === 'lottery');
 
-        if (str_starts_with($ref, 'op:')) {
-            $query->whereNull('a.ref_group')->where('a.operation_id', (int) substr($ref, 3));
-        } else {
-            $query->where('a.ref_group', $ref);
-        }
-
-        $items = $query->orderBy('a.created_at')
-            ->get(['a.character_id', 'a.value', 'a.source', 'a.reason', 'a.external_ref', 'a.created_at']);
-
-        $names = CharacterInfo::whereIn('character_id', $items->pluck('character_id'))
-            ->pluck('name', 'character_id');
-
-        return response()->json([
-            'status' => 'success',
-            'items' => $items->map(fn($a) => [
-                'character_id' => $a->character_id,
-                'character_name' => $names->get($a->character_id, '#' . $a->character_id),
-                'value' => (float) $a->value,
-                'source' => $a->source,
-                'reason' => $a->reason,
-                'external_ref' => $a->external_ref,
-                'at' => $a->created_at,
-            ])->values(),
-        ]);
+        return $hasLotteryTag || Lottery::where('operation_id', $operation->id)->exists();
     }
 }

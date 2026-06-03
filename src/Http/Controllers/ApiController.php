@@ -2,10 +2,13 @@
 
 namespace Seat\Kassie\Calendar\Http\Controllers;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Seat\Eveapi\Models\Character\CharacterInfo;
 use Seat\Eveapi\Models\RefreshToken;
+use Seat\Kassie\Calendar\Models\Lottery;
 use Seat\Kassie\Calendar\Models\Operation;
 use Seat\Kassie\Calendar\Models\Pap;
 use Seat\Kassie\Calendar\Models\PapAdjustment;
@@ -80,8 +83,9 @@ class ApiController
     }
 
     /**
-     * 实时扣减：POST /api/calendar/paps/debit
-     * 写负数调整，校验余额，幂等 + 按用户串行化，回带扣后余额。
+     * 商店预留实时扣减：POST /api/calendar/paps/debit
+     *
+     * 抽奖不再调用本接口；抽奖开奖后统一走 lotterySettle()。
      */
     public function debit(Request $request): JsonResponse
     {
@@ -89,7 +93,8 @@ class ApiController
     }
 
     /**
-     * 退款：POST /api/calendar/paps/refund
+     * 商店预留退款：POST /api/calendar/paps/refund
+     *
      * 写正数调整，不校验余额（外部负责不超退），幂等键独立。
      */
     public function refund(Request $request): JsonResponse
@@ -98,7 +103,171 @@ class ApiController
     }
 
     /**
-     * debit / refund 共享实现。单事务、幂等、advisory lock 串行化该用户全部并发扣减。
+     * 抽奖开奖结算：一场抽奖写成一个消费 operation，并回到行动审查页纠错。
+     */
+    public function lotterySettle(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ref_group' => 'required|string|max:64',
+            'settled_by_character_id' => 'required|integer',
+            'title' => 'required|string|max:255',
+            'idempotency_key' => 'required|string|max:128',
+            'participants' => 'required|array|min:1',
+            'participants.*.character_id' => 'required|integer',
+            'participants.*.amount' => 'required|numeric|min:0.01|max:999999.99',
+            'participants.*.reason' => 'required|string|max:255',
+        ]);
+
+        $idempotencyKey = $validated['idempotency_key'];
+        $settleKey = $this->lotterySettleKey($idempotencyKey);
+        $lockName = $this->lotterySettleLockName($validated['ref_group']);
+        $userLocks = [];
+
+        $lock = DB::selectOne('SELECT GET_LOCK(?, 10) AS acquired', [$lockName]);
+        if (! $lock || (int) $lock->acquired !== 1) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lottery settlement is busy, please retry.',
+            ], 503);
+        }
+
+        try {
+            $settler = $this->resolveLinkedCharacter((int) $validated['settled_by_character_id']);
+            if ($settler === null) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Settler character not found or not linked to a SeAT user.',
+                ], 404);
+            }
+
+            $resolvedParticipants = [];
+            $amountByMainCharacter = [];
+            $participantUserIds = [];
+
+            foreach ($validated['participants'] as $participant) {
+                $participantCharacterId = (int) $participant['character_id'];
+                $resolved = $this->resolveLinkedCharacter($participantCharacterId);
+
+                if ($resolved === null) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Participant character not found or not linked to a SeAT user.',
+                        'character_id' => $participantCharacterId,
+                    ], 422);
+                }
+
+                $amount = round((float) $participant['amount'], 2);
+                $mainCharacterId = $resolved['main_character_id'];
+                $amountByMainCharacter[$mainCharacterId] = round(($amountByMainCharacter[$mainCharacterId] ?? 0) + $amount, 2);
+
+                if ($amountByMainCharacter[$mainCharacterId] > 999999.99) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Participant total amount exceeds PAP value limit.',
+                        'character_id' => $mainCharacterId,
+                    ], 422);
+                }
+
+                $resolvedParticipants[] = [
+                    ...$resolved,
+                    'amount' => $amount,
+                    'reason' => $participant['reason'],
+                ];
+                $participantUserIds[$resolved['user_id']] = true;
+            }
+
+            $acquiredUserLocks = $this->acquireUserLocks(array_keys($participantUserIds));
+            if ($acquiredUserLocks === null) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Account is busy, please retry.',
+                ], 503);
+            }
+            $userLocks = $acquiredUserLocks;
+
+            $existing = Operation::where('consumption_key', $settleKey)->first();
+            $existingByRefGroup = $this->findLotterySettlementByRefGroup($validated['ref_group']);
+            if ($existing && $existingByRefGroup && (int) $existing->id !== (int) $existingByRefGroup->id) {
+                return $this->lotterySettlementConflictResponse();
+            }
+
+            $existingSettlement = $existing ?: $existingByRefGroup;
+            if ($existingSettlement) {
+                if (! $this->lotterySettlementMatches($existingSettlement, $validated['ref_group'], $resolvedParticipants)) {
+                    return $this->lotterySettlementConflictResponse();
+                }
+
+                return $this->lotterySettleResponse($existingSettlement, $idempotencyKey, true, $resolvedParticipants);
+            }
+
+            try {
+                $operation = DB::transaction(function () use ($validated, $settleKey, $settler, $resolvedParticipants): Operation {
+                    $now = carbon();
+                    $operation = new Operation([
+                        'title' => $validated['title'],
+                        'is_consumption' => true,
+                        'importance' => 0,
+                        'start_at' => $now,
+                        'end_at' => $now,
+                        'consumption_key' => $settleKey,
+                    ]);
+                    $operation->user_id = $settler['user_id'];
+                    $operation->fc = $settler['name'];
+                    $operation->fc_character_id = $settler['main_character_id'];
+                    $operation->save();
+
+                    $operation->tags()->syncWithoutDetaching([Lottery::reservedTag()->id]);
+                    $touchedMainCharacters = [];
+
+                    foreach ($resolvedParticipants as $participant) {
+                        Pap::firstOrCreate(
+                            ['operation_id' => $operation->id, 'character_id' => $participant['main_character_id']],
+                            ['ship_type_id' => 0, 'join_time' => $now->toDateTimeString(), 'created_at' => $now]
+                        );
+
+                        PapAdjustment::create([
+                            'operation_id' => $operation->id,
+                            'character_id' => $participant['main_character_id'],
+                            'value' => -$participant['amount'],
+                            'source' => 'lottery',
+                            'external_ref' => null,
+                            'ref_group' => $validated['ref_group'],
+                            'reason' => $participant['reason'],
+                            'created_by_character_id' => $settler['main_character_id'],
+                            'created_at' => $now,
+                        ]);
+
+                        $touchedMainCharacters[$participant['main_character_id']] = true;
+                    }
+
+                    foreach (array_keys($touchedMainCharacters) as $mainCharacterId) {
+                        Pap::recomputeValueFor($operation->id, (int) $mainCharacterId);
+                    }
+
+                    return $operation;
+                });
+            } catch (UniqueConstraintViolationException $e) {
+                $operation = Operation::where('consumption_key', $settleKey)->first();
+                if (! $operation) {
+                    throw $e;
+                }
+
+                if (! $this->lotterySettlementMatches($operation, $validated['ref_group'], $resolvedParticipants)) {
+                    return $this->lotterySettlementConflictResponse();
+                }
+
+                return $this->lotterySettleResponse($operation, $idempotencyKey, true, $resolvedParticipants);
+            }
+
+            return $this->lotterySettleResponse($operation, $idempotencyKey, false, $resolvedParticipants);
+        } finally {
+            $this->releaseLocks($userLocks);
+            DB::statement('SELECT RELEASE_LOCK(?)', [$lockName]);
+        }
+    }
+
+    /**
+     * debit / refund 共享实现。仅保留给未来商店；抽奖不得通过 standing operation 实时扣款。
      */
     private function handleLedgerWrite(Request $request, bool $isDebit): JsonResponse
     {
@@ -212,6 +381,146 @@ class ApiController
             ->whereIn('character_id', $characterIds)
             ->where('join_time', '>=', Pap::statisticsStartDate())
             ->sum('value');
+    }
+
+    private function lotterySettleKey(string $idempotencyKey): string
+    {
+        return 'lottery-settle:' . hash('sha256', $idempotencyKey);
+    }
+
+    private function lotterySettleLockName(string $refGroup): string
+    {
+        return 'pap_lottery_' . substr(hash('sha256', $refGroup), 0, 32);
+    }
+
+    private function lotterySettleResponse(Operation $operation, string $idempotencyKey, bool $idempotentReplay, array $resolvedParticipants): JsonResponse
+    {
+        $participants = collect($resolvedParticipants)
+            ->groupBy('main_character_id')
+            ->map(fn($items, $mainCharacterId) => [
+                'character_id' => (int) $mainCharacterId,
+                'balance_after' => round($this->availableBalance($items->first()['associated_character_ids']), 2),
+            ])
+            ->values();
+
+        return response()->json([
+            'status' => 'success',
+            'operation_id' => $operation->id,
+            'idempotency_key' => $idempotencyKey,
+            'idempotent_replay' => $idempotentReplay,
+            'participants' => $participants,
+        ]);
+    }
+
+    private function lotterySettlementConflictResponse(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Lottery settlement key or ref_group already exists with different payload.',
+        ], 409);
+    }
+
+    private function findLotterySettlementByRefGroup(string $refGroup): ?Operation
+    {
+        $operationIds = PapAdjustment::where('source', 'lottery')
+            ->where('ref_group', $refGroup)
+            ->distinct()
+            ->limit(2)
+            ->pluck('operation_id');
+
+        if ($operationIds->isEmpty()) {
+            return null;
+        }
+
+        return Operation::find((int) $operationIds->first());
+    }
+
+    private function lotterySettlementMatches(Operation $operation, string $refGroup, array $resolvedParticipants): bool
+    {
+        $existingRefGroups = PapAdjustment::where('operation_id', $operation->id)
+            ->where('source', 'lottery')
+            ->distinct()
+            ->pluck('ref_group')
+            ->reject(fn($ref) => is_null($ref))
+            ->values();
+
+        if ($existingRefGroups->count() !== 1 || $existingRefGroups->first() !== $refGroup) {
+            return false;
+        }
+
+        $existingParticipants = PapAdjustment::where('operation_id', $operation->id)
+            ->where('source', 'lottery')
+            ->where('ref_group', $refGroup)
+            ->get(['character_id', 'value', 'reason'])
+            ->map(fn($adjustment) => [
+                'main_character_id' => (int) $adjustment->character_id,
+                'amount' => round(abs((float) $adjustment->value), 2),
+                'reason' => (string) $adjustment->reason,
+            ])
+            ->all();
+
+        return $this->lotteryParticipantsSignature($existingParticipants) === $this->lotteryParticipantsSignature($resolvedParticipants);
+    }
+
+    private function lotteryParticipantsSignature(array $participants): array
+    {
+        return collect($participants)
+            ->map(fn($participant) => sprintf(
+                '%d|%s|%s',
+                (int) $participant['main_character_id'],
+                number_format((float) $participant['amount'], 2, '.', ''),
+                (string) $participant['reason']
+            ))
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    private function resolveLinkedCharacter(int $characterId): ?array
+    {
+        $token = RefreshToken::find($characterId);
+        $user = $token?->user;
+
+        if (! $user) {
+            return null;
+        }
+
+        $mainCharacterId = (int) ($user->main_character_id ?? $characterId);
+
+        return [
+            'user_id' => (int) $user->id,
+            'main_character_id' => $mainCharacterId,
+            'associated_character_ids' => $user->associatedCharacterIds(),
+            'name' => CharacterInfo::find($mainCharacterId)?->name ?? '#' . $mainCharacterId,
+        ];
+    }
+
+    private function acquireUserLocks(array $userIds): ?array
+    {
+        $lockNames = [];
+        $userIds = array_values(array_unique(array_map('intval', $userIds)));
+        sort($userIds);
+
+        foreach ($userIds as $userId) {
+            $lockName = 'pap_calendar_user_' . $userId;
+            $lock = DB::selectOne('SELECT GET_LOCK(?, 10) AS acquired', [$lockName]);
+            if (! $lock || (int) $lock->acquired !== 1) {
+                $this->releaseLocks($lockNames);
+
+                return null;
+            }
+
+            $lockNames[] = $lockName;
+        }
+
+        return $lockNames;
+    }
+
+    private function releaseLocks(array $lockNames): void
+    {
+        foreach (array_reverse($lockNames) as $lockName) {
+            DB::statement('SELECT RELEASE_LOCK(?)', [$lockName]);
+        }
     }
 
     /**
