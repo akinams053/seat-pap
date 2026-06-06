@@ -1,7 +1,7 @@
 # seat-pap
 
 [![Core Version](https://img.shields.io/badge/SeAT-5.0.x-blue?style=for-the-badge)](https://github.com/eveseat/seat)
-[![License](https://img.shields.io/github/license/akinams053/seat-pap?style=for-the-badge)](https://github.com/akinams053/seat-pap/blob/localization/LICENCE)
+[![License](https://img.shields.io/github/license/akinams053/seat-pap?style=for-the-badge)](https://github.com/akinams053/seat-pap/blob/main/LICENCE)
 
 面向 **SeAT 5.x** 的 Calendar / PAP 插件。
 
@@ -84,32 +84,38 @@
 - [`docs/06-API使用说明.md`](docs/06-API使用说明.md)：外部抽奖 / 商店对接 API 文档。
 - [`docs/08-抽奖服务器对接指南.md`](docs/08-抽奖服务器对接指南.md)：抽奖服务器开发者指南，说明 JWT 登录、本地待结算账本、购买防透支、开奖 settle 与错误处理。
 
-## 分支说明
+## 版本与分支
 
-本仓库通过 Packagist 安装，需用「版本约束」明确指定分支。当前主要分支：
+本插件为**单一产品向前演进**，发布用 **tag**（语义化版本）。安装 / 升级 / 回退都以 tag 为准，逐版变化见 [`docs/版本历史.md`](docs/版本历史.md)。
 
-| 分支 | Composer 版本约束 | 内容 |
-|---|---|---|
-| `localization` | `dev-localization` | 基础版（默认分支）：operation / PAP 采集 / 行动审查 / 角色·军团统计 / 商店 API / MOTD。 |
-| `docs/pap-hypernet-lottery-plan` | `dev-docs/pap-hypernet-lottery-plan` | 历史完整版（内置抽奖）：已完成并测试服验证，但当前抽奖方向已外移。 |
-| `feat/pap-bank-externalize` | `dev-feat/pap-bank-externalize` | 当前验证版：抽奖外移；开奖后通过 `settle` 结算为 SeAT operation 并进入行动审查；三口径统计 / 主角色聚合 / API 已在测试服验证。 |
+| 版本（tag） | 内容 |
+|---|---|
+| `2.0.0` | **当前最新**：抽奖外移；开奖后 `settle` 结算为 SeAT operation 并进入行动审查；PAP 三口径统计 / 主角色聚合 / 银行化 API / 限流 300/min / JWT 120s。 |
+| `1.0.0` | PAP 商店版（抽奖外移前）：operation / PAP 采集 / 行动审查 / 角色·军团统计 / 商店 API / MOTD。 |
 
-> 当前最新可验证功能在 `feat/pap-bank-externalize`。是否合并回默认分支 `localization` / 发布正式版本，由维护者决定。
->
+分支角色：
+
+| 分支 | 角色 |
+|---|---|
+| `main` | 发布主线（默认分支），永远指向最新已发布版本 |
+| `pap-bank` | 2.0 命名分支（当前 = `main`） |
+| `shop` | 1.0 历史基线（冻结） |
+| `dev-lottery` | 内置抽奖完成态的中间基线，内容已并入 2.0（历史参考） |
+
 > Packagist 页面：https://packagist.org/packages/akinams053/seat-pap
 
 ## 安装
 
-在 **SeAT 根目录**（默认 `/var/www/seat`）执行，按需选择分支的版本约束：
+在 **SeAT 根目录**（默认 `/var/www/seat`）执行，安装指定 tag：
 
 ```bash
 cd /var/www/seat
 
 # 安装插件（需要 sudo 以写入 vendor 目录）
-# 当前验证版（抽奖外移 + settle 成行动）：
-sudo composer require akinams053/seat-pap:dev-feat/pap-bank-externalize
-# 或基础版：
-# sudo composer require akinams053/seat-pap:dev-localization
+# 当前最新版：
+sudo composer require akinams053/seat-pap:2.0.0
+# 或旧稳定版：
+# sudo composer require akinams053/seat-pap:1.0.0
 
 # 发布静态资源（CSS/JS）
 sudo php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
@@ -127,13 +133,13 @@ php artisan cache:clear
 
 ## 更新
 
-更新会拉取**当前已安装分支**的最新提交：
+升级到新版本 = 用目标 tag 重新 `require`：
 
 ```bash
 cd /var/www/seat
 
-# 拉取最新提交
-sudo composer update akinams053/seat-pap --no-cache
+# 升级到新版本（把 2.1.0 换成目标 tag）
+sudo composer require akinams053/seat-pap:2.1.0 --no-cache
 
 # 重新发布静态资源（仅当本次更新含 CSS/JS 改动时需要）
 sudo php artisan vendor:publish --force --provider="Seat\Kassie\Calendar\CalendarServiceProvider"
@@ -147,13 +153,14 @@ sudo -u www-data php artisan route:clear
 sudo -u www-data php artisan cache:clear
 ```
 
-## 切换分支版本
+## 切换 / 回退版本
 
-要把已安装的版本从一个分支切到另一个（例如基础版 → 当前验证版），用目标分支的版本约束重新 `require`：
+要切到任意版本（升级或回退），用目标 tag 重新 `require`：
 
 ```bash
 cd /var/www/seat
-sudo composer require akinams053/seat-pap:dev-feat/pap-bank-externalize --no-cache
+# 例：回退到 1.0.0，或换成任意目标 tag
+sudo composer require akinams053/seat-pap:1.0.0 --no-cache
 sudo -u www-data php artisan migrate --force
 sudo -u www-data php artisan view:clear
 sudo -u www-data php artisan route:clear
