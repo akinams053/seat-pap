@@ -2,6 +2,9 @@
 
 namespace Seat\Kassie\Calendar;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Seat\Kassie\Calendar\Http\Middleware\ApiTokenMiddleware;
 use Seat\Kassie\Calendar\Http\Middleware\ApiWriteTokenMiddleware;
 use Seat\Services\AbstractSeatPlugin;
@@ -17,6 +20,7 @@ class CalendarServiceProvider extends AbstractSeatPlugin
         $this->app['router']->aliasMiddleware('calendar.api.token', ApiTokenMiddleware::class);
         $this->app['router']->aliasMiddleware('calendar.api.write_token', ApiWriteTokenMiddleware::class);
 
+        $this->registerApiRateLimiter();
         $this->addRoutes();
         $this->addViews();
         $this->addTranslations();
@@ -27,6 +31,17 @@ class CalendarServiceProvider extends AbstractSeatPlugin
     private function addRoutes(): void
     {
         $this->loadRoutesFrom(__DIR__ . '/Http/routes.php');
+    }
+
+    /**
+     * 插件自有 API 限流器：替代宿主默认 `throttle:api`（60/min）。
+     * 抽奖 / 商店服务端调用为可信的 token 鉴权请求，按调用方 IP 放宽到 300/min，
+     * 仅作用于本插件 API 路由，不改动宿主全局限流。
+     */
+    private function registerApiRateLimiter(): void
+    {
+        RateLimiter::for('calendar-api', fn (Request $request): Limit =>
+            Limit::perMinute(300)->by($request->ip()));
     }
 
     private function addViews(): void

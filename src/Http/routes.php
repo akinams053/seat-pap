@@ -3,9 +3,10 @@
 use Illuminate\Support\Facades\Route;
 
 // PAP API — token 认证，供外部服务调用
+// 用插件自有 `throttle:calendar-api`（300/min）替代宿主默认 `api` 组的 60/min
 Route::group([
     'namespace' => 'Seat\\Kassie\\Calendar\\Http\\Controllers',
-    'middleware' => ['api', 'calendar.api.token'],
+    'middleware' => ['throttle:calendar-api', \Illuminate\Routing\Middleware\SubstituteBindings::class, 'calendar.api.token'],
     'prefix' => 'api/calendar',
 ], function (): void {
 
@@ -24,7 +25,7 @@ Route::group([
 // PAP 写接口 — 独立写 token；抽奖走 settle，debit/refund 仅保留给未来商店
 Route::group([
     'namespace' => 'Seat\\Kassie\\Calendar\\Http\\Controllers',
-    'middleware' => ['api', 'calendar.api.write_token'],
+    'middleware' => ['throttle:calendar-api', \Illuminate\Routing\Middleware\SubstituteBindings::class, 'calendar.api.write_token'],
     'prefix' => 'api/calendar',
 ], function (): void {
 

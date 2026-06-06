@@ -55,7 +55,7 @@ JWT = `Header.Payload.Signature`：
   "name": "Akina",
   "balance": 9.00,
   "iat": 1711699200,
-  "exp": 1711699260
+  "exp": 1711699320
 }
 ```
 
@@ -65,7 +65,7 @@ JWT = `Header.Payload.Signature`：
 | `main_character_id` | 主角色 EVE id，显示用，可能因切换主角色变化 |
 | `name` | 主角色名，显示用 |
 | `balance` | 抽奖跳转余额快照，仅供显示 / 赊账期参考；开奖后仍以 `settle` 落账为准 |
-| `iat` / `exp` | 签发 / 过期（签发后 **60 秒**过期） |
+| `iat` / `exp` | 签发 / 过期（签发后 **120 秒**过期） |
 
 - **Signature**：`HMAC-SHA256(base64url(header) + "." + base64url(payload), 读 token)`
 - **务必用 `sub`（user_id）做外部用户主键**，不要用 `main_character_id` 或角色 id。用户切换主角色后 character_id 会变，但 `sub` 不变。

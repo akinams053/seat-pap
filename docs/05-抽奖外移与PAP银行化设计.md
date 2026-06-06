@@ -219,7 +219,7 @@ paps.value = 基础 PAP + 全部 PapAdjustment 后的最终净值
 验证时遇到的非业务问题：
 
 - `php artisan` 需用 `sudo -u www-data`，不能直接用 `ubuntu` 用户读取 `.env`。
-- 连续本机 curl 曾触发 `api` 组 throttle，返回 `429`；正常抽奖 settle 是低频单次调用，通常不会遇到。外部服务仍应按 HTTP 规范处理 `Retry-After`。
+- 插件 API 用自有限流器 `calendar-api`（按 IP 300/min），正常抽奖 settle 是低频单次调用，远低于上限。外部服务仍应按 HTTP 规范防御性处理 `Retry-After`。
 
 ---
 

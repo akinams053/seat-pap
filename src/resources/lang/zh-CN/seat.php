@@ -184,7 +184,7 @@ return [
     'shop_token_not_configured' => '尚未生成 API Token，请先生成 Token。',
     'shop_no_main_character' => '未找到主角色，无法跳转。',
     'shop_jwt_info' => 'JWT 令牌结构',
-    'shop_jwt_sign_hint' => '签名密钥为上方的 API Token，算法 HMAC-SHA256。商店服务器用同一个 Token 验证签名。令牌有效期 60 秒。',
+    'shop_jwt_sign_hint' => '签名密钥为上方的 API Token，算法 HMAC-SHA256。商店服务器用同一个 Token 验证签名。令牌有效期 120 秒。',
 
     'lottery_settings' => '抽奖外链跳转设置',
     'lottery_description' => '抽奖玩法运行在外部服务器，配置其认证地址后成员可从侧边栏直接跳转。跳转携带 JWT（含余额快照），外部用 API Token 验证签名；扣款 / 退款由外部回调写接口完成。',

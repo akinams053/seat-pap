@@ -195,7 +195,7 @@ return [
     'shop_token_not_configured' => 'API Token not generated. Please generate one first.',
     'shop_no_main_character' => 'No main character found. Cannot redirect.',
     'shop_jwt_info' => 'JWT Token Structure',
-    'shop_jwt_sign_hint' => 'Signed with the API Token above using HMAC-SHA256. The shop server verifies using the same token. JWT expires in 60 seconds.',
+    'shop_jwt_sign_hint' => 'Signed with the API Token above using HMAC-SHA256. The shop server verifies using the same token. JWT expires in 120 seconds.',
 
     'lottery_settings' => 'Lottery Redirect',
     'lottery_description' => 'The lottery runs on an external server. Configure its auth URL so members can jump directly from the sidebar. A JWT (with balance snapshot) is attached for authentication; debit / refund are handled by the external service calling the write API.',

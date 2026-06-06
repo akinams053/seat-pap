@@ -192,7 +192,7 @@ class SettingController extends Controller
             'main_character_id' => $mainCharacterId,
             'name' => $characterName,
             'iat'  => time(),
-            'exp'  => time() + 60,
+            'exp'  => time() + 120,
         ]));
         $signature = $this->base64UrlEncode(hash_hmac('sha256', "$header.$payload", $apiToken, true));
         $jwt = "$header.$payload.$signature";
@@ -240,7 +240,7 @@ class SettingController extends Controller
             'name' => $characterName,
             'balance' => $balance,
             'iat'  => time(),
-            'exp'  => time() + 60,
+            'exp'  => time() + 120,
         ]));
         $signature = $this->base64UrlEncode(hash_hmac('sha256', "$header.$payload", $apiToken, true));
         $jwt = "$header.$payload.$signature";
