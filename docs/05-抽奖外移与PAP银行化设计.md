@@ -1,10 +1,10 @@
 # 05 · 抽奖外移与 PAP 银行化设计
 
-> 本文档是 `feat/pap-bank-externalize` 当前**有效**设计，已合并旧 05「抽奖外移 / PAP 银行化」与旧 07「抽奖重做为行动」两份文档。
+> 本文档是 `2.0.0` 当前**有效**设计，已合并旧 05「抽奖外移 / PAP 银行化」与旧 07「抽奖重做为行动」两份文档。
 >
 > 当前结论：抽奖玩法外移到独立服务；SeAT 侧不再做节点 / 开奖 UI，而是保留 PAP 中央账本能力，并在**开奖后**通过 `settle` 把一场抽奖结算成一个可审查的 operation。
 >
-> 测试服状态（2026-06-03）：`dev-feat/pap-bank-externalize` @ `1f6d70b` 已部署到 `/var/www/seat`，migration / settle / PAP API / Web UI 行动审查弹窗均已验证通过。
+> 生产状态（2026-06-06）：`2.0.0` @ `e771de7` 已部署到生产服，migration / 路由 / schema / 服务端探测均已验证通过；测试服历史验证见 §8。
 
 ---
 
@@ -198,7 +198,7 @@ paps.value = 基础 PAP + 全部 PapAdjustment 后的最终净值
 
 已验证：
 
-- ✅ Composer 切到 `dev-feat/pap-bank-externalize` @ `1f6d70b`。
+- ✅ Composer 切到历史验证分支 `dev-feat/pap-bank-externalize` @ `1f6d70b`。
 - ✅ 以 `www-data` 成功执行新增 migration。
 - ✅ 发布静态资源并清理缓存。
 - ✅ `POST /api/calendar/paps/lottery/settle` 成功创建验证 operation `181`。
@@ -223,7 +223,7 @@ paps.value = 基础 PAP + 全部 PapAdjustment 后的最终净值
 
 ---
 
-## 9. 上线前建议
+## 9. 上线后建议 / 外部联调
 
 - 外部抽奖服务：
   - settle 必须使用稳定 `idempotency_key`。

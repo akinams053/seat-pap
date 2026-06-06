@@ -338,7 +338,7 @@ GET /api/calendar/paps?characters=2118151113,2118151114,2118151115
 
 ## 9. 当前实现状态
 
-截至 2026-06-03，`feat/pap-bank-externalize` 当前实现状态为：
+截至 2026-06-06，`2.0.0` 已部署到生产，当前实现状态为：
 
 - 读 API、写 token、JWT 跳转保留。
 - 抽奖主接口已改为 `POST /api/calendar/paps/lottery/settle`。
@@ -346,7 +346,7 @@ GET /api/calendar/paps?characters=2118151113,2118151114,2118151115
 - 外部消费审查页已废弃；抽奖 operation 回到行动审查页。
 - 统计口径不变：出勤 − 消费 = 可用，统计/API 直接读 `paps.value`。
 
-测试服已验证：
+测试服与生产服务端已验证：
 
 1. `settle` 能创建 operation、挂 lottery tag、批量写负值 adjustment。
 2. 同一 `idempotency_key` 重试只返回旧 `operation_id`，不重复扣。
